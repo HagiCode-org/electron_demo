@@ -151,6 +151,17 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WINAPP_CLI_TELEMETRY_OPTOUT: '1'
 
+      - name: Preserve unsigned Windows artifacts
+        if: success() && matrix.target.id != 'win-msix' && steps.signing_policy.outputs.required == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/preserve-artifacts.js \
+            --source-dir pkg \
+            --artifact-path "${{ matrix.target.artifact_path }}" \
+            --output-dir unsigned-artifacts \
+            --suffix unsigned
+
       - name: Collect Windows signable artifacts
         if: success() && matrix.target.id != 'win-msix'
         id: windows_artifacts
@@ -222,5 +233,14 @@ jobs:
         with:
           name: ${{ matrix.target.id }}
           path: ${{ matrix.target.artifact_path }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload unsigned Windows artifacts
+        if: success() && matrix.target.id != 'win-msix' && steps.signing_policy.outputs.required == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.target.id }}-unsigned
+          path: unsigned-artifacts/*
           if-no-files-found: error
           retention-days: 14

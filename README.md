@@ -35,6 +35,7 @@ npm run build:mac:arm64
 - 正式 production 构建时：
   - Windows `.exe` 产物要求 Azure Artifact Signing 配置齐全并完成签名校验
   - macOS 产物要求证书与 notarization 配置齐全后再允许发布
+  - 已签名的 Windows / macOS 包会和对应的未签名包一起保留；未签名产物会追加 `-unsigned` 后缀，既会出现在 workflow artifacts 中，也会随 tag release 一起上传
 
 ## Release 环境变量
 
