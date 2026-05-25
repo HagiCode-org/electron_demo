@@ -223,6 +223,32 @@ jobs:
             exit 1
           fi
 
+      - name: Prepare macOS release signing environment
+        if: success() && matrix.target.platform == 'mac' && startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          {
+            echo "CSC_LINK=${CSC_LINK}"
+            echo "CSC_KEY_PASSWORD=${CSC_KEY_PASSWORD}"
+            echo "APPLE_API_KEY<<EOF"
+            echo "${APPLE_API_KEY}"
+            echo 'EOF'
+            echo "APPLE_API_KEY_ID=${APPLE_API_KEY_ID}"
+            echo "APPLE_API_ISSUER=${APPLE_API_ISSUER}"
+            echo "APPLE_ID=${APPLE_ID}"
+            echo "APPLE_APP_SPECIFIC_PASSWORD=${APPLE_APP_SPECIFIC_PASSWORD}"
+            echo "APPLE_TEAM_ID=${APPLE_TEAM_ID}"
+          } >> "$GITHUB_ENV"
+
       - name: Sync package version
         shell: bash
         run: |
@@ -255,21 +281,30 @@ jobs:
             ${{ runner.os }}-electron-
 
       - name: Install dependencies
-        run: npm ci
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if npm ci; then
+              exit 0
+            fi
+
+            if [[ "$attempt" -eq 3 ]]; then
+              exit 1
+            fi
+
+            echo "npm ci failed on attempt ${attempt}; cleaning workspace and retrying..."
+            rm -rf node_modules
+            npm cache verify || true
+            sleep $((attempt * 10))
+          done
 
       - name: Build packages
         run: ${{ matrix.target.command }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: ${{ matrix.target.platform == 'mac' && startsWith(github.ref, 'refs/tags/v') && 'true' || 'false' }}
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          WINAPP_CLI_TELEMETRY_OPTOUT: '1'
 
       - name: Collect Windows signable artifacts
         if: success() && matrix.target.platform == 'windows' && matrix.target.id != 'win-msix'
