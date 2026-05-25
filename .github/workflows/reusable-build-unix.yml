@@ -275,14 +275,21 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Publish build artifacts to GitHub Release
+      - name: Publish build artifacts to existing GitHub Release
         if: success() && inputs.publish_release_assets
-        uses: softprops/action-gh-release@v3
-        with:
-          files: ${{ matrix.target.artifact_path }}
-          fail_on_unmatched_files: true
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(${{ matrix.target.artifact_path }})
+          if [[ ${#files[@]} -eq 0 ]]; then
+            echo "No release files matched: ${{ matrix.target.artifact_path }}" >&2
+            exit 1
+          fi
+
+          gh release upload "${GITHUB_REF_NAME}" --clobber "${files[@]}"
 
       - name: Upload unsigned macOS artifacts
         if: success() && matrix.target.platform == 'mac' && inputs.is_production_build
@@ -293,11 +300,18 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Publish unsigned macOS artifacts to GitHub Release
+      - name: Publish unsigned macOS artifacts to existing GitHub Release
         if: success() && inputs.publish_release_assets && matrix.target.platform == 'mac' && inputs.is_production_build
-        uses: softprops/action-gh-release@v3
-        with:
-          files: unsigned-artifacts/*
-          fail_on_unmatched_files: true
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(unsigned-artifacts/*)
+          if [[ ${#files[@]} -eq 0 ]]; then
+            echo "No unsigned macOS release files were found" >&2
+            exit 1
+          fi
+
+          gh release upload "${GITHUB_REF_NAME}" --clobber "${files[@]}"

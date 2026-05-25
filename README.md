@@ -34,7 +34,7 @@ npm run build:mac:arm64
 - `build.yml` — Parallel matrix builds across Linux / Windows / macOS by OS + package format
 - Linux targets include `AppImage`, `deb`, `rpm`, `tar.gz`, and `zip`
 - Windows targets include `portable`, `nsis`, `appx`, and `msix`
-- Tag releases enter the `production` environment, create the GitHub Release up front, and upload assets progressively as each matrix job finishes
+- Tag releases enter the `production` environment and upload assets progressively to an already-created GitHub Release as each matrix job finishes
 - Manual triggers with `production_build=true` also run production builds; they follow production signing checks and only upload workflow artifacts without creating a GitHub Release
 - For production builds:
   - The Windows job uses `windows-2025` runners; `.exe` and `.appx` artifacts are strictly signed via Azure Artifact Signing v2, and `appx` / `msix` package manifests read `Publisher` from `WINDOWS_PACKAGE_PUBLISHER` so it can match the signing certificate subject
@@ -56,4 +56,4 @@ Production tag releases and manual triggers with `production_build=true` require
 
 `appx` and `msix` are included in the Windows release matrix and uploaded as release artifacts. The workflow injects `WINDOWS_PACKAGE_PUBLISHER` into both packaging paths so the manifest `Publisher` matches the signing certificate subject. For `msix`, production signing is still attempted via Azure Artifact Signing v2, but if that step fails only the unsigned `win-msix-unsigned` artifact is kept.
 
-Manual production build example: run `Build Electron Demo` from the Actions page with `production_build` set to `true`. This binds to the `production` environment, executes production-level signing pre-checks, and preserves artifacts in workflow artifacts. Tag-driven releases create the GitHub Release before matrix builds start, then attach each job's assets directly instead of waiting for a final aggregate upload job.
+Manual production build example: run `Build Electron Demo` from the Actions page with `production_build` set to `true`. This binds to the `production` environment, executes production-level signing pre-checks, and preserves artifacts in workflow artifacts. Tag-driven releases now assume the GitHub Release already exists and each matrix job uploads its assets directly with `gh release upload --clobber`.
