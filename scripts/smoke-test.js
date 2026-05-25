@@ -6,6 +6,8 @@ import path from 'node:path';
 const cwd = process.cwd();
 const requirePackage = process.env.ELECTRON_DEMO_SMOKE_TEST_REQUIRE_PACKAGE === '1';
 const allowDirOnly = process.env.ELECTRON_DEMO_SMOKE_TEST_ALLOW_DIR_ONLY === '1';
+const expectedPlatform = process.env.ELECTRON_DEMO_SMOKE_TEST_EXPECT_PLATFORM || '';
+const expectedTarget = process.env.ELECTRON_DEMO_SMOKE_TEST_EXPECT_TARGET || '';
 
 const results = {
   passed: 0,
@@ -46,6 +48,15 @@ function listFiles(relativeDir) {
   }));
 }
 
+function assertCondition(condition, successMessage, failureMessage) {
+  if (condition) {
+    pass(successMessage);
+    return;
+  }
+
+  fail(failureMessage);
+}
+
 function expectPackageOutputs() {
   const pkgEntries = listFiles('pkg');
   if (pkgEntries.length === 0) {
@@ -55,43 +66,83 @@ function expectPackageOutputs() {
 
   pass('pkg directory contains build outputs');
 
+  if (expectedPlatform && expectedPlatform !== process.platform) {
+    fail(`Expected package platform ${expectedPlatform}, current platform is ${process.platform}`);
+    return;
+  }
+
   if (process.platform === 'linux') {
     const hasAppImage = pkgEntries.some((entry) => entry.name.endsWith('.AppImage'));
     const hasTarGz = pkgEntries.some((entry) => entry.name.endsWith('.tar.gz'));
     const hasZip = pkgEntries.some((entry) => entry.name.endsWith('.zip'));
     const hasUnpacked = pkgEntries.some((entry) => entry.isDirectory && entry.name === 'linux-unpacked');
 
-    if (hasUnpacked) {
-      pass('linux-unpacked output exists');
-    } else {
-      fail('linux-unpacked output is missing');
-    }
+    assertCondition(hasUnpacked, 'linux-unpacked output exists', 'linux-unpacked output is missing');
 
     if (allowDirOnly) {
       return;
     }
 
-    hasAppImage ? pass('Linux AppImage exists') : fail('Linux AppImage is missing');
-    hasTarGz ? pass('Linux tar.gz exists') : fail('Linux tar.gz is missing');
-    hasZip ? pass('Linux zip exists') : fail('Linux zip is missing');
+    if (expectedTarget === 'appimage') {
+      assertCondition(hasAppImage, 'Linux AppImage exists', 'Linux AppImage is missing');
+      return;
+    }
+
+    if (expectedTarget === 'tar.gz') {
+      assertCondition(hasTarGz, 'Linux tar.gz exists', 'Linux tar.gz is missing');
+      return;
+    }
+
+    if (expectedTarget === 'zip') {
+      assertCondition(hasZip, 'Linux zip exists', 'Linux zip is missing');
+      return;
+    }
+
+    assertCondition(hasAppImage, 'Linux AppImage exists', 'Linux AppImage is missing');
+    assertCondition(hasTarGz, 'Linux tar.gz exists', 'Linux tar.gz is missing');
+    assertCondition(hasZip, 'Linux zip exists', 'Linux zip is missing');
     return;
   }
 
   if (process.platform === 'win32') {
-    const hasExe = pkgEntries.some((entry) => entry.name.endsWith('.exe'));
+    const hasPortableExe = pkgEntries.some((entry) => entry.name.endsWith('.exe') && !entry.name.includes('Setup'));
+    const hasNsisExe = pkgEntries.some((entry) => entry.name.endsWith('.exe') && entry.name.includes('Setup'));
     const hasUnpacked = pkgEntries.some((entry) => entry.isDirectory && entry.name === 'win-unpacked');
 
-    hasExe ? pass('Windows executable exists') : fail('Windows executable is missing');
-    hasUnpacked ? pass('win-unpacked output exists') : fail('win-unpacked output is missing');
+    assertCondition(hasUnpacked, 'win-unpacked output exists', 'win-unpacked output is missing');
+
+    if (expectedTarget === 'portable') {
+      assertCondition(hasPortableExe, 'Windows portable executable exists', 'Windows portable executable is missing');
+      return;
+    }
+
+    if (expectedTarget === 'nsis') {
+      assertCondition(hasNsisExe, 'Windows NSIS installer exists', 'Windows NSIS installer is missing');
+      return;
+    }
+
+    assertCondition(hasPortableExe || hasNsisExe, 'Windows executable exists', 'Windows executable is missing');
     return;
   }
 
   if (process.platform === 'darwin') {
-    const hasArchive = pkgEntries.some((entry) => entry.name.endsWith('.dmg') || entry.name.endsWith('.zip'));
+    const hasDmg = pkgEntries.some((entry) => entry.name.endsWith('.dmg'));
+    const hasZip = pkgEntries.some((entry) => entry.name.endsWith('.zip'));
     const hasAppBundle = pkgEntries.some((entry) => entry.isDirectory && entry.name.startsWith('mac'));
 
-    hasArchive ? pass('macOS archive exists') : fail('macOS archive is missing');
-    hasAppBundle ? pass('macOS app bundle directory exists') : fail('macOS app bundle directory is missing');
+    assertCondition(hasAppBundle, 'macOS app bundle directory exists', 'macOS app bundle directory is missing');
+
+    if (expectedTarget === 'dmg') {
+      assertCondition(hasDmg, 'macOS dmg exists', 'macOS dmg is missing');
+      return;
+    }
+
+    if (expectedTarget === 'zip') {
+      assertCondition(hasZip, 'macOS zip exists', 'macOS zip is missing');
+      return;
+    }
+
+    assertCondition(hasDmg || hasZip, 'macOS archive exists', 'macOS archive is missing');
   }
 }
 
