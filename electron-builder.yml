@@ -1,0 +1,57 @@
+appId: com.hagicode.electrondemo
+productName: HagiCode Electron Demo
+directories:
+  buildResources: resources
+  output: pkg
+files:
+  - dist/**/*
+  - package.json
+  - '!pkg/**/*'
+  - '!dist/**/*.map'
+asar: true
+extraResources:
+  - from: resources/icon.png
+    to: icon.png
+publish:
+  provider: github
+  owner: HagiCode-org
+  repo: electron_demo
+win:
+  target:
+    - target: portable
+      arch:
+        - x64
+    - target: nsis
+      arch:
+        - x64
+  icon: resources/icon.ico
+nsis:
+  runAfterFinish: false
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+    - target: zip
+      arch:
+        - x64
+        - arm64
+  icon: resources/icon.icns
+  category: public.app-category.developer-tools
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: tar.gz
+      arch:
+        - x64
+    - target: zip
+      arch:
+        - x64
+  icon: resources
+  category: Development

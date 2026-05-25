@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HagiCode Electron Demo</title>
+    <style>
+      #loading-container {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background:
+          radial-gradient(circle at top, rgba(39, 110, 241, 0.35), transparent 38%),
+          linear-gradient(135deg, #07111f 0%, #0e1729 45%, #141a25 100%);
+        color: #f5f7fb;
+        font-family: "Segoe UI", sans-serif;
+        z-index: 9999;
+      }
+
+      .loading-card {
+        padding: 28px 32px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 24px;
+        background: rgba(8, 14, 28, 0.72);
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.3);
+      }
+
+      .loading-label {
+        margin: 0 0 12px;
+        font-size: 12px;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+        color: #8ea6d9;
+      }
+
+      .loading-title {
+        margin: 0;
+        font-size: 24px;
+      }
+
+      .loading-subtitle {
+        margin: 10px 0 0;
+        color: #b0bdd6;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loading-container">
+      <div class="loading-card">
+        <p class="loading-label">Electron Demo</p>
+        <h1 class="loading-title">正在启动最小桌面壳</h1>
+        <p class="loading-subtitle">main / preload / renderer 正在准备中。</p>
+      </div>
+    </div>
+    <div id="root"></div>
+    <script type="module" src="/main.tsx"></script>
+  </body>
+</html>

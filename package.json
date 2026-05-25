@@ -1,0 +1,58 @@
+{
+  "name": "electron_demo",
+  "productName": "HagiCode Electron Demo",
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "npm@10.9.2",
+  "description": "Minimal Electron demo app for CI packaging validation",
+  "main": "dist/main/bootstrap.js",
+  "license": "AGPL-3.0",
+  "homepage": "https://github.com/HagiCode-org/electron_demo",
+  "author": {
+    "name": "newbe36524",
+    "email": "support@hagicode.com"
+  },
+  "scripts": {
+    "typecheck:main": "tsc --noEmit -p tsconfig.json",
+    "typecheck:preload": "tsc --noEmit -p tsconfig.preload.json",
+    "typecheck:renderer": "tsc --noEmit -p tsconfig.renderer.json",
+    "build:tsc": "tsc -p tsconfig.json",
+    "build:tsc:check": "npm run typecheck:main && npm run typecheck:preload && npm run typecheck:renderer",
+    "build:preload": "vite build --config vite.preload.config.ts",
+    "build:renderer": "vite build",
+    "build:all": "npm run build:tsc && npm run build:preload && npm run build:renderer",
+    "smoke-test": "node scripts/smoke-test.js",
+    "package:smoke-test": "cross-env ELECTRON_DEMO_SMOKE_TEST_REQUIRE_PACKAGE=1 node scripts/smoke-test.js",
+    "package:smoke-test:dir": "cross-env ELECTRON_DEMO_SMOKE_TEST_REQUIRE_PACKAGE=1 ELECTRON_DEMO_SMOKE_TEST_ALLOW_DIR_ONLY=1 node scripts/smoke-test.js",
+    "build:prod": "npm run build:tsc:check && npm run build:all && npm run smoke-test",
+    "build:linux": "npm run build:prod && node scripts/run-electron-builder.js --linux --x64 --publish never && npm run package:smoke-test",
+    "build:linux:dir": "npm run build:prod && node scripts/run-electron-builder.js --linux dir --x64 --publish never && npm run package:smoke-test:dir",
+    "build:win": "npm run build:prod && node scripts/run-electron-builder.js --win --x64 --publish never && npm run package:smoke-test",
+    "build:mac": "npm run build:prod && node scripts/run-electron-builder.js --mac --publish never && npm run package:smoke-test",
+    "build:mac:x64": "npm run build:prod && node scripts/run-electron-builder.js --mac --x64 --publish never && npm run package:smoke-test",
+    "build:mac:arm64": "npm run build:prod && node scripts/run-electron-builder.js --mac --arm64 --publish never && npm run package:smoke-test",
+    "dev:renderer": "vite --host 127.0.0.1 --port 36598 --strictPort",
+    "dev:main": "tsc -p tsconfig.json --watch",
+    "dev:preload": "vite build --config vite.preload.config.ts --watch",
+    "dev:electron": "wait-on tcp:127.0.0.1:36598 file:dist/preload/index.mjs file:dist/main/bootstrap.js && cross-env NODE_ENV=development electron .",
+    "dev": "node -e \"const fs=require('fs');if(fs.existsSync('dist'))fs.rmSync('dist',{recursive:true,force:true})\" && concurrently -k \"npm run dev:renderer\" \"npm run dev:main\" \"npm run dev:preload\" \"npm run dev:electron\"",
+    "start": "npm run build:all && electron ."
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^6.0.1",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron": "^41.3.0",
+    "electron-builder": "^26.8.1",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.10",
+    "wait-on": "^9.0.3"
+  }
+}
