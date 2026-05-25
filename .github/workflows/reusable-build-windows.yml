@@ -36,22 +36,19 @@ jobs:
         target:
           - id: win-portable
             name: Windows Portable
-            runs_on: windows-2022
+            runs_on: windows-2025
             command: npm run build:win:portable
             artifact_path: pkg/*.exe
-            sign_filter: exe
           - id: win-nsis
             name: Windows NSIS
-            runs_on: windows-2022
+            runs_on: windows-2025
             command: npm run build:win:nsis
             artifact_path: pkg/*Setup*.exe
-            sign_filter: exe
           - id: win-msix
             name: Windows MSIX
-            runs_on: windows-2022
+            runs_on: windows-2025
             command: npm run build:win:msix
             artifact_path: pkg/*.msix
-            sign_filter: msix
 
     steps:
       - name: Checkout code
@@ -188,16 +185,28 @@ jobs:
             throw "No signable Windows artifacts were found in pkg/ for ${{ matrix.target.id }}."
           }
 
-          $catalogPath = Join-Path $pkgDir 'windows-signable-artifacts.txt'
-          $catalogEntries = @()
-          foreach ($file in $selectedFiles) {
-            $catalogEntries += [System.IO.Path]::GetRelativePath($pkgDir, $file.FullName).Replace([System.IO.Path]::DirectorySeparatorChar, '/')
+          if ($selectedFiles.Count -gt 1) {
+            $listedFiles = ($selectedFiles | ForEach-Object { $_.FullName }) -join "`n"
+            throw "Expected exactly one signable Windows artifact for ${{ matrix.target.id }}, found $($selectedFiles.Count):`n$listedFiles"
           }
-          $catalogEntries = @($catalogEntries | Sort-Object -Unique)
-          $catalogEntries | Set-Content -Path $catalogPath
+
+          $selectedFile = $selectedFiles[0]
+          $catalogPath = Join-Path $pkgDir 'windows-signable-artifacts.txt'
+          [System.IO.Path]::GetRelativePath($pkgDir, $selectedFile.FullName).Replace([System.IO.Path]::DirectorySeparatorChar, '/') | Set-Content -Path $catalogPath
 
           Add-Content -Path $env:GITHUB_OUTPUT -Value "catalog_path=$catalogPath"
-          Add-Content -Path $env:GITHUB_OUTPUT -Value "package_count=$($selectedFiles.Count)"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "selected_file_name=$($selectedFile.Name)"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "selected_file_path=$($selectedFile.FullName)"
+
+      - name: Ensure PowerShell Gallery is available
+        if: success() && steps.signing_policy.outputs.required == 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not (Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue)) {
+            Register-PSRepository -Default
+          }
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
 
       - name: Azure login for Artifact Signing
         if: success() && steps.signing_policy.outputs.required == 'true'
@@ -209,19 +218,45 @@ jobs:
 
       - name: Sign Windows artifacts with Artifact Signing
         if: success() && steps.signing_policy.outputs.required == 'true'
+        id: windows_signing
+        continue-on-error: ${{ matrix.target.id == 'win-msix' }}
         uses: azure/artifact-signing-action@v2
         with:
           endpoint: ${{ secrets.AZURE_CODESIGN_ENDPOINT }}
           signing-account-name: ${{ secrets.AZURE_CODESIGN_ACCOUNT_NAME }}
           certificate-profile-name: ${{ secrets.AZURE_CODESIGN_CERTIFICATE_PROFILE_NAME }}
-          files-folder: ${{ github.workspace }}\pkg
-          files-folder-filter: ${{ matrix.target.sign_filter }}
+          files-catalog: ${{ steps.windows_artifacts.outputs.catalog_path }}
           file-digest: SHA256
           timestamp-rfc3161: http://timestamp.acs.microsoft.com
           timestamp-digest: SHA256
+          cache-dependencies: true
+
+      - name: Restore unsigned MSIX artifact after signing fallback
+        if: always() && steps.signing_policy.outputs.required == 'true' && matrix.target.id == 'win-msix' && steps.windows_signing.outcome != 'success'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $pkgDir = Join-Path $env:GITHUB_WORKSPACE 'pkg'
+          $artifactName = '${{ steps.windows_artifacts.outputs.selected_file_name }}'
+          $unsignedPath = Join-Path $env:GITHUB_WORKSPACE 'unsigned-artifacts'
+          $unsignedFile = Get-ChildItem -Path $unsignedPath -File | Where-Object { $_.Name -like '*-unsigned.msix' } | Select-Object -First 1
+          if (-not $unsignedFile) {
+            throw 'Unsigned MSIX fallback artifact was not found in unsigned-artifacts/.'
+          }
+
+          Copy-Item -LiteralPath $unsignedFile.FullName -Destination (Join-Path $pkgDir $artifactName) -Force
+
+          $summary = @(
+            '## Windows MSIX signing fallback',
+            '',
+            '- Azure Artifact Signing v2 for MSIX did not complete successfully on this run.',
+            '- The job restored and retained the unsigned MSIX artifact so production packaging can continue.'
+          ) -join "`n"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value $summary
+          Write-Warning 'MSIX signing failed; restored the unsigned MSIX artifact for upload.'
 
       - name: Verify Windows signatures
-        if: success() && steps.signing_policy.outputs.required == 'true'
+        if: success() && steps.signing_policy.outputs.required == 'true' && matrix.target.id != 'win-msix'
         shell: bash
         env:
           VERIFY_STRICT: 'true'

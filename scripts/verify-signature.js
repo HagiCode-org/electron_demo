@@ -117,6 +117,46 @@ function normalizeCandidateFiles(files) {
   return unique;
 }
 
+function findSignToolInArtifactSigningCache() {
+  const localAppData = process.env.LOCALAPPDATA;
+  if (!localAppData) {
+    return null;
+  }
+
+  const buildToolsRoot = path.join(localAppData, 'ArtifactSigning', 'Microsoft.Windows.SDK.BuildTools');
+  if (!fs.existsSync(buildToolsRoot)) {
+    return null;
+  }
+
+  const versionDirectories = fs
+    .readdirSync(buildToolsRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => path.join(buildToolsRoot, entry.name))
+    .sort((left, right) => right.localeCompare(left));
+
+  for (const versionDirectory of versionDirectories) {
+    const binDirectory = path.join(versionDirectory, 'bin');
+    if (!fs.existsSync(binDirectory)) {
+      continue;
+    }
+
+    const sdkDirectories = fs
+      .readdirSync(binDirectory, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => path.join(binDirectory, entry.name))
+      .sort((left, right) => right.localeCompare(left));
+
+    for (const sdkDirectory of sdkDirectories) {
+      const candidate = path.join(sdkDirectory, 'x64', 'signtool.exe');
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
+    }
+  }
+
+  return null;
+}
+
 function getSignToolPath() {
   if (process.platform !== 'win32') {
     return null;
@@ -125,13 +165,43 @@ function getSignToolPath() {
   const programFiles = process.env.ProgramFiles || 'C:\\Program Files';
   const programFilesX86 = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
   const possiblePaths = [
+    path.join(programFiles, 'Windows Kits', '10', 'bin', '10.0.26100.0', 'x64', 'signtool.exe'),
     path.join(programFiles, 'Windows Kits', '10', 'bin', '10.0.22000.0', 'x64', 'signtool.exe'),
     path.join(programFiles, 'Windows Kits', '10', 'bin', 'x64', 'signtool.exe'),
     path.join(programFilesX86, 'Windows Kits', '10', 'bin', 'x64', 'signtool.exe'),
     path.join(programFiles, 'Windows Kits', '8.1', 'bin', 'x64', 'signtool.exe'),
-  ];
+    findSignToolInArtifactSigningCache(),
+  ].filter(Boolean);
 
   return possiblePaths.find((candidate) => fs.existsSync(candidate)) ?? null;
+}
+
+async function verifyWithPowerShell(filePath) {
+  const escapedPath = filePath.replace(/'/g, "''");
+  const result = await execa(
+    'pwsh',
+    [
+      '-NoLogo',
+      '-NoProfile',
+      '-Command',
+      `$signature = Get-AuthenticodeSignature -LiteralPath '${escapedPath}'; if ($signature.Status -eq 'Valid') { Write-Output 'Valid'; exit 0 } Write-Output $signature.Status; if ($signature.StatusMessage) { Write-Output $signature.StatusMessage }; exit 1`,
+    ],
+    {
+      reject: false,
+      stdin: 'ignore',
+      stdout: 'pipe',
+      stderr: 'pipe',
+      windowsHide: true,
+    },
+  );
+
+  return {
+    signed: result.exitCode === 0,
+    method: 'powershell-authenticode',
+    code: result.exitCode,
+    stdout: result.stdout,
+    stderr: result.stderr,
+  };
 }
 
 async function verifySignature(filePath) {
@@ -139,17 +209,13 @@ async function verifySignature(filePath) {
     return {
       signed: false,
       method: 'unsupported-platform',
-      note: 'Full Authenticode verification requires Windows signtool.',
+      note: 'Full Authenticode verification requires Windows signature tooling.',
     };
   }
 
   const signToolPath = getSignToolPath();
   if (!signToolPath) {
-    return {
-      signed: false,
-      method: 'missing-signtool',
-      error: 'signtool.exe not found on this Windows runner.',
-    };
+    return verifyWithPowerShell(filePath);
   }
 
   const result = await execa(signToolPath, ['verify', '/pa', filePath], {

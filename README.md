@@ -33,7 +33,7 @@ npm run build:mac:arm64
 - Tag 发布会进入 `production` environment，并发布 GitHub Release
 - 也支持手动触发 `production_build=true` 的 production 构建；此时会走 production 签名校验并仅上传 workflow artifacts，不创建 GitHub Release
 - 正式 production 构建时：
-  - Windows `.exe` 与 `.msix` 产物要求 Azure Artifact Signing 配置齐全，并通过 Azure Artifact Signing v2 完成签名与校验
+  - Windows job 使用 `windows-2025` runner；`.exe` 会通过 Azure Artifact Signing v2 严格签名校验，`msix` 会尝试走同一签名链路并在失败时回退为 unsigned
   - macOS 产物在签名材料齐全时会同时产出 signed 与 unsigned 包；如果 production 环境缺少签名或 notarization 要素，会自动回退为 unsigned-only 构建，不阻塞发布链路
   - 已签名的 Windows / macOS 包会和对应的未签名包一起保留；未签名产物会追加 `-unsigned` 后缀，既会出现在 workflow artifacts 中，也会随 tag release 一起上传
 
@@ -48,6 +48,6 @@ npm run build:mac:arm64
   - 推荐 API key 方案：`APPLE_API_KEY`、`APPLE_API_KEY_ID`、`APPLE_API_ISSUER`
   - 或 Apple ID 方案：`APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID`
 
-`msix` 已纳入 Windows 发布矩阵并作为 release artifact 上传。当前 workflow 默认对 Windows `.exe` 产物执行 Azure 签名校验；如果你的签名服务已经确认支持 `.msix`，可以在此基础上继续扩展对应步骤。
+`msix` 已纳入 Windows 发布矩阵并作为 release artifact 上传。当前 workflow 会在 production 中尝试对 `msix` 执行 Azure Artifact Signing v2；若签名未成功，会自动回退并上传 unsigned MSIX，同时保留 unsigned artifact。
 
 手动 production 构建示例：在 Actions 页面运行 `Build Electron Demo`，将 `production_build` 设为 `true`。这会绑定 `production` environment、执行 production 级签名前置校验，并把产物保留在 workflow artifacts 中。
