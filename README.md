@@ -31,13 +31,14 @@ npm run build:mac:arm64
 - `build.yml`：Linux / Windows / macOS 按“操作系统 + 包格式”矩阵并行构建
 - Windows 目标包含 `portable`、`nsis`、`msix`
 - Tag 发布会进入 `production` environment，并发布 GitHub Release
-- 正式 tag 发布时：
+- 也支持手动触发 `production_build=true` 的 production 构建；此时会走 production 签名校验并仅上传 workflow artifacts，不创建 GitHub Release
+- 正式 production 构建时：
   - Windows `.exe` 产物要求 Azure Artifact Signing 配置齐全并完成签名校验
   - macOS 产物要求证书与 notarization 配置齐全后再允许发布
 
 ## Release 环境变量
 
-正式 tag 发布需要在仓库或 `production` environment 提供以下 secrets：
+正式 tag 发布，以及手动触发 `production_build=true` 的 production 构建，都需要在仓库或 `production` environment 提供以下 secrets：
 
 - Windows 签名：`AZURE_CLIENT_ID`、`AZURE_TENANT_ID`、`AZURE_SUBSCRIPTION_ID`、`AZURE_CODESIGN_ENDPOINT`、`AZURE_CODESIGN_ACCOUNT_NAME`、`AZURE_CODESIGN_CERTIFICATE_PROFILE_NAME`
 - macOS 签名证书：`CSC_LINK`、`CSC_KEY_PASSWORD`
@@ -46,3 +47,5 @@ npm run build:mac:arm64
   - 或 Apple ID 方案：`APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID`
 
 `msix` 已纳入 Windows 发布矩阵并作为 release artifact 上传。当前 workflow 默认对 Windows `.exe` 产物执行 Azure 签名校验；如果你的签名服务已经确认支持 `.msix`，可以在此基础上继续扩展对应步骤。
+
+手动 production 构建示例：在 Actions 页面运行 `Build Electron Demo`，将 `production_build` 设为 `true`。这会绑定 `production` environment、执行 production 级签名前置校验，并把产物保留在 workflow artifacts 中。

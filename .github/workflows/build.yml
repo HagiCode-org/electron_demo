@@ -8,6 +8,11 @@ on:
       - 'v*.*.*'
   workflow_dispatch:
     inputs:
+      production_build:
+        description: Run a production-signed build and upload results as workflow artifacts
+        required: false
+        default: false
+        type: boolean
       sign_windows_release:
         description: Require Windows Azure Artifact Signing for this run
         required: false
@@ -30,6 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.meta.outputs.version }}
+      is_production_build: ${{ steps.meta.outputs.is_production_build }}
 
     steps:
       - name: Resolve version from release drafter
@@ -44,6 +50,7 @@ jobs:
         shell: bash
         env:
           DRAFT_VERSION: ${{ steps.draft.outputs.resolved_version || '' }}
+          MANUAL_PRODUCTION_BUILD: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.production_build == 'true' && 'true' || 'false' }}
         run: |
           set -euo pipefail
 
@@ -53,20 +60,28 @@ jobs:
           fi
 
           version="${package_version}"
+          is_production_build='false'
+
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             version="${GITHUB_REF_NAME#v}"
+            is_production_build='true'
           elif [[ "${GITHUB_REF}" == 'refs/heads/main' && -n "${DRAFT_VERSION}" ]]; then
             version="${DRAFT_VERSION}"
           fi
 
+          if [[ "${MANUAL_PRODUCTION_BUILD}" == 'true' ]]; then
+            is_production_build='true'
+          fi
+
           echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "is_production_build=${is_production_build}" >> "$GITHUB_OUTPUT"
 
   build-package:
     name: Build ${{ matrix.target.name }}
     needs: prepare-release
     runs-on: ${{ matrix.target.runs_on }}
     environment:
-      name: ${{ startsWith(github.ref, 'refs/tags/v') && 'production' || 'ci' }}
+      name: ${{ needs.prepare-release.outputs.is_production_build == 'true' && 'production' || 'ci' }}
       deployment: false
     strategy:
       fail-fast: false
@@ -141,10 +156,12 @@ jobs:
         if: matrix.target.platform == 'windows'
         id: signing_policy
         shell: bash
+        env:
+          IS_PRODUCTION_BUILD: ${{ needs.prepare-release.outputs.is_production_build }}
         run: |
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+          if [[ "${IS_PRODUCTION_BUILD}" == 'true' ]]; then
             required=true
-            reason='tag release'
+            reason='production build'
           elif [[ "${{ github.event_name }}" == 'workflow_dispatch' && "${{ github.event.inputs.sign_windows_release || 'false' }}" == 'true' ]]; then
             required=true
             reason='manual workflow_dispatch override'
@@ -180,7 +197,7 @@ jobs:
           fi
 
       - name: Validate macOS release signing configuration
-        if: success() && matrix.target.platform == 'mac' && startsWith(github.ref, 'refs/tags/v')
+        if: success() && matrix.target.platform == 'mac' && needs.prepare-release.outputs.is_production_build == 'true'
         shell: bash
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
@@ -224,7 +241,7 @@ jobs:
           fi
 
       - name: Prepare macOS release signing environment
-        if: success() && matrix.target.platform == 'mac' && startsWith(github.ref, 'refs/tags/v')
+        if: success() && matrix.target.platform == 'mac' && needs.prepare-release.outputs.is_production_build == 'true'
         shell: bash
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
@@ -303,7 +320,7 @@ jobs:
         run: ${{ matrix.target.command }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: ${{ matrix.target.platform == 'mac' && startsWith(github.ref, 'refs/tags/v') && 'true' || 'false' }}
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ matrix.target.platform == 'mac' && needs.prepare-release.outputs.is_production_build == 'true' && 'true' || 'false' }}
           WINAPP_CLI_TELEMETRY_OPTOUT: '1'
 
       - name: Collect Windows signable artifacts
