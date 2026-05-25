@@ -12,9 +12,12 @@ on:
       sign_windows_release:
         required: true
         type: boolean
+      publish_release_assets:
+        required: true
+        type: boolean
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 env:
@@ -87,9 +90,10 @@ jobs:
           AZURE_CODESIGN_ENDPOINT: ${{ secrets.AZURE_CODESIGN_ENDPOINT }}
           AZURE_CODESIGN_ACCOUNT_NAME: ${{ secrets.AZURE_CODESIGN_ACCOUNT_NAME }}
           AZURE_CODESIGN_CERTIFICATE_PROFILE_NAME: ${{ secrets.AZURE_CODESIGN_CERTIFICATE_PROFILE_NAME }}
+          WINDOWS_PACKAGE_PUBLISHER: ${{ secrets.WINDOWS_PACKAGE_PUBLISHER }}
         run: |
           missing=()
-          for key in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID AZURE_CODESIGN_ENDPOINT AZURE_CODESIGN_ACCOUNT_NAME AZURE_CODESIGN_CERTIFICATE_PROFILE_NAME; do
+          for key in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID AZURE_CODESIGN_ENDPOINT AZURE_CODESIGN_ACCOUNT_NAME AZURE_CODESIGN_CERTIFICATE_PROFILE_NAME WINDOWS_PACKAGE_PUBLISHER; do
             if [[ -z "${!key}" ]]; then
               missing+=("${key}")
             fi
@@ -155,6 +159,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WINAPP_CLI_TELEMETRY_OPTOUT: '1'
+          WINDOWS_PACKAGE_PUBLISHER: ${{ secrets.WINDOWS_PACKAGE_PUBLISHER }}
 
       - name: Preserve unsigned Windows artifacts
         if: success() && steps.signing_policy.outputs.required == 'true'
@@ -227,29 +232,19 @@ jobs:
           timestamp-digest: SHA256
           cache-dependencies: true
 
-      - name: Restore unsigned MSIX artifact after signing fallback
+      - name: Summarize unsigned MSIX fallback
         if: always() && steps.signing_policy.outputs.required == 'true' && matrix.target.id == 'win-msix' && steps.windows_signing.outcome != 'success'
         shell: pwsh
         run: |
-          $ErrorActionPreference = 'Stop'
-          $pkgDir = Join-Path $env:GITHUB_WORKSPACE 'pkg'
-          $artifactName = '${{ steps.windows_artifacts.outputs.selected_file_name }}'
-          $unsignedPath = Join-Path $env:GITHUB_WORKSPACE 'unsigned-artifacts'
-          $unsignedFile = Get-ChildItem -Path $unsignedPath -File | Where-Object { $_.Name -like '*-unsigned.msix' } | Select-Object -First 1
-          if (-not $unsignedFile) {
-            throw 'Unsigned MSIX fallback artifact was not found in unsigned-artifacts/.'
-          }
-
-          Copy-Item -LiteralPath $unsignedFile.FullName -Destination (Join-Path $pkgDir $artifactName) -Force
-
           $summary = @(
-            '## Windows MSIX signing fallback',
+            '## Windows MSIX signing skipped',
             '',
             '- Azure Artifact Signing v2 for MSIX did not complete successfully on this run.',
-            '- The job restored and retained the unsigned MSIX artifact so production packaging can continue.'
+            '- The signed `win-msix` artifact was skipped.',
+            '- The unsigned MSIX artifact is still available via `win-msix-unsigned`.'
           ) -join "`n"
           Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value $summary
-          Write-Warning 'MSIX signing failed; restored the unsigned MSIX artifact for upload.'
+          Write-Warning 'MSIX signing failed; skipping signed artifact upload and retaining only the unsigned MSIX artifact.'
 
       - name: Verify Windows signatures
         if: success() && steps.signing_policy.outputs.required == 'true' && matrix.target.id != 'win-msix'
@@ -260,12 +255,22 @@ jobs:
           node scripts/verify-signature.js --catalog "${{ steps.windows_artifacts.outputs.catalog_path }}"
 
       - name: Upload build artifacts
+        if: success() && (steps.signing_policy.outputs.required != 'true' || matrix.target.id != 'win-msix' || steps.windows_signing.outcome == 'success')
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.target.id }}
           path: ${{ matrix.target.artifact_path }}
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish build artifacts to GitHub Release
+        if: success() && inputs.publish_release_assets && (steps.signing_policy.outputs.required != 'true' || matrix.target.id != 'win-msix' || steps.windows_signing.outcome == 'success')
+        uses: softprops/action-gh-release@v3
+        with:
+          files: ${{ matrix.target.artifact_path }}
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload unsigned Windows artifacts
         if: success() && steps.signing_policy.outputs.required == 'true'
@@ -275,3 +280,12 @@ jobs:
           path: unsigned-artifacts/*
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish unsigned Windows artifacts to GitHub Release
+        if: success() && inputs.publish_release_assets && steps.signing_policy.outputs.required == 'true'
+        uses: softprops/action-gh-release@v3
+        with:
+          files: unsigned-artifacts/*
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

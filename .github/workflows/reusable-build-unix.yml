@@ -9,9 +9,12 @@ on:
       is_production_build:
         required: true
         type: boolean
+      publish_release_assets:
+        required: true
+        type: boolean
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   NODE_VERSION: '22'
@@ -272,6 +275,15 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Publish build artifacts to GitHub Release
+        if: success() && inputs.publish_release_assets
+        uses: softprops/action-gh-release@v3
+        with:
+          files: ${{ matrix.target.artifact_path }}
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Upload unsigned macOS artifacts
         if: success() && matrix.target.platform == 'mac' && inputs.is_production_build
         uses: actions/upload-artifact@v7
@@ -280,3 +292,12 @@ jobs:
           path: unsigned-artifacts/*
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish unsigned macOS artifacts to GitHub Release
+        if: success() && inputs.publish_release_assets && matrix.target.platform == 'mac' && inputs.is_production_build
+        uses: softprops/action-gh-release@v3
+        with:
+          files: unsigned-artifacts/*
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
