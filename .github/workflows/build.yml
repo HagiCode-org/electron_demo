@@ -7,9 +7,16 @@ on:
     tags:
       - 'v*.*.*'
   workflow_dispatch:
+    inputs:
+      sign_windows_release:
+        description: Require Windows Azure Artifact Signing for this run
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
+  id-token: write
 
 env:
   NODE_VERSION: '22'
@@ -58,52 +65,70 @@ jobs:
     name: Build ${{ matrix.target.name }}
     needs: prepare-release
     runs-on: ${{ matrix.target.runs_on }}
+    environment:
+      name: ${{ startsWith(github.ref, 'refs/tags/v') && 'production' || 'ci' }}
+      deployment: false
     strategy:
       fail-fast: false
       matrix:
         target:
           - id: linux-appimage
             name: Linux AppImage
+            platform: linux
             runs_on: ubuntu-latest
             command: npm run build:linux:appimage
             artifact_path: pkg/*.AppImage
           - id: linux-tar-gz
             name: Linux tar.gz
+            platform: linux
             runs_on: ubuntu-latest
             command: npm run build:linux:tar.gz
             artifact_path: pkg/*.tar.gz
           - id: linux-zip
             name: Linux ZIP
+            platform: linux
             runs_on: ubuntu-latest
             command: npm run build:linux:zip
             artifact_path: pkg/*.zip
           - id: win-portable
             name: Windows Portable
+            platform: windows
             runs_on: windows-2022
             command: npm run build:win:portable
             artifact_path: pkg/*.exe
           - id: win-nsis
             name: Windows NSIS
+            platform: windows
             runs_on: windows-2022
             command: npm run build:win:nsis
-            artifact_path: pkg/*.exe
+            artifact_path: pkg/*Setup*.exe
+          - id: win-msix
+            name: Windows MSIX
+            platform: windows
+            runs_on: windows-2022
+            command: npm run build:win:msix
+            artifact_path: pkg/*.msix
           - id: mac-x64-dmg
             name: macOS x64 DMG
+            platform: mac
             runs_on: macos-15-intel
             command: npm run build:mac:x64:dmg
             artifact_path: pkg/*.dmg
           - id: mac-x64-zip
             name: macOS x64 ZIP
+            platform: mac
             runs_on: macos-15-intel
             command: npm run build:mac:x64:zip
             artifact_path: pkg/*.zip
           - id: mac-arm64-dmg
             name: macOS arm64 DMG
+            platform: mac
             runs_on: macos-14
             command: npm run build:mac:arm64:dmg
             artifact_path: pkg/*.dmg
           - id: mac-arm64-zip
             name: macOS arm64 ZIP
+            platform: mac
             runs_on: macos-14
             command: npm run build:mac:arm64:zip
             artifact_path: pkg/*.zip
@@ -111,6 +136,92 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+
+      - name: Determine Windows signing policy
+        if: matrix.target.platform == 'windows'
+        id: signing_policy
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            required=true
+            reason='tag release'
+          elif [[ "${{ github.event_name }}" == 'workflow_dispatch' && "${{ github.event.inputs.sign_windows_release || 'false' }}" == 'true' ]]; then
+            required=true
+            reason='manual workflow_dispatch override'
+          else
+            required=false
+            reason='non-release build'
+          fi
+
+          echo "required=${required}" >> "$GITHUB_OUTPUT"
+          echo "reason=${reason}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate Windows Artifact Signing configuration
+        if: success() && matrix.target.platform == 'windows' && steps.signing_policy.outputs.required == 'true'
+        shell: bash
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          AZURE_CODESIGN_ENDPOINT: ${{ secrets.AZURE_CODESIGN_ENDPOINT }}
+          AZURE_CODESIGN_ACCOUNT_NAME: ${{ secrets.AZURE_CODESIGN_ACCOUNT_NAME }}
+          AZURE_CODESIGN_CERTIFICATE_PROFILE_NAME: ${{ secrets.AZURE_CODESIGN_CERTIFICATE_PROFILE_NAME }}
+        run: |
+          missing=()
+          for key in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID AZURE_CODESIGN_ENDPOINT AZURE_CODESIGN_ACCOUNT_NAME AZURE_CODESIGN_CERTIFICATE_PROFILE_NAME; do
+            if [[ -z "${!key}" ]]; then
+              missing+=("${key}")
+            fi
+          done
+
+          if [[ ${#missing[@]} -gt 0 ]]; then
+            printf '::error::Missing Artifact Signing configuration: %s\n' "$(IFS=', '; echo "${missing[*]}")"
+            exit 1
+          fi
+
+      - name: Validate macOS release signing configuration
+        if: success() && matrix.target.platform == 'mac' && startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          missing=()
+          if [[ -z "${CSC_LINK}" ]]; then
+            missing+=('CSC_LINK')
+          fi
+          if [[ -z "${CSC_KEY_PASSWORD}" ]]; then
+            missing+=('CSC_KEY_PASSWORD')
+          fi
+
+          has_api_key_auth=true
+          for key in APPLE_API_KEY APPLE_API_KEY_ID APPLE_API_ISSUER; do
+            if [[ -z "${!key}" ]]; then
+              has_api_key_auth=false
+            fi
+          done
+
+          has_apple_id_auth=true
+          for key in APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            if [[ -z "${!key}" ]]; then
+              has_apple_id_auth=false
+            fi
+          done
+
+          if [[ "${has_api_key_auth}" != 'true' && "${has_apple_id_auth}" != 'true' ]]; then
+            missing+=('APPLE_API_KEY/APPLE_API_KEY_ID/APPLE_API_ISSUER or APPLE_ID/APPLE_APP_SPECIFIC_PASSWORD/APPLE_TEAM_ID')
+          fi
+
+          if [[ ${#missing[@]} -gt 0 ]]; then
+            printf '::error::Missing macOS release signing configuration: %s\n' "$(IFS=', '; echo "${missing[*]}")"
+            exit 1
+          fi
 
       - name: Sync package version
         shell: bash
@@ -150,7 +261,81 @@ jobs:
         run: ${{ matrix.target.command }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ matrix.target.platform == 'mac' && startsWith(github.ref, 'refs/tags/v') && 'true' || 'false' }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Collect Windows signable artifacts
+        if: success() && matrix.target.platform == 'windows' && matrix.target.id != 'win-msix'
+        id: windows_artifacts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $pkgDir = Join-Path $env:GITHUB_WORKSPACE 'pkg'
+          if (-not (Test-Path $pkgDir)) {
+            throw "pkg directory not found: $pkgDir"
+          }
+
+          $allFiles = Get-ChildItem -Path $pkgDir -File
+          $selectedFiles = switch ('${{ matrix.target.id }}') {
+            'win-portable' { @($allFiles | Where-Object { $_.Extension -ieq '.exe' -and $_.Name -notlike '*Setup*' } | Sort-Object FullName -Unique) }
+            'win-nsis' { @($allFiles | Where-Object { $_.Extension -ieq '.exe' -and $_.Name -like '*Setup*' } | Sort-Object FullName -Unique) }
+            default { @() }
+          }
+
+          if ($selectedFiles.Count -eq 0) {
+            throw "No signable Windows artifacts were found in pkg/ for ${{ matrix.target.id }}."
+          }
+
+          $catalogPath = Join-Path $pkgDir 'windows-signable-artifacts.txt'
+          $catalogEntries = @()
+          foreach ($file in $selectedFiles) {
+            $catalogEntries += [System.IO.Path]::GetRelativePath($pkgDir, $file.FullName).Replace([System.IO.Path]::DirectorySeparatorChar, '/')
+          }
+          $catalogEntries = @($catalogEntries | Sort-Object -Unique)
+          $catalogEntries | Set-Content -Path $catalogPath
+
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "catalog_path=$catalogPath"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "package_count=$($selectedFiles.Count)"
+
+      - name: Azure login for Artifact Signing
+        if: success() && matrix.target.platform == 'windows' && matrix.target.id != 'win-msix' && steps.signing_policy.outputs.required == 'true'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Sign Windows EXE artifacts with Artifact Signing
+        if: success() && matrix.target.platform == 'windows' && matrix.target.id != 'win-msix' && steps.signing_policy.outputs.required == 'true'
+        uses: azure/artifact-signing-action@v1
+        with:
+          endpoint: ${{ secrets.AZURE_CODESIGN_ENDPOINT }}
+          signing-account-name: ${{ secrets.AZURE_CODESIGN_ACCOUNT_NAME }}
+          certificate-profile-name: ${{ secrets.AZURE_CODESIGN_CERTIFICATE_PROFILE_NAME }}
+          files-folder: ${{ github.workspace }}/pkg
+          files-folder-filter: '*.exe'
+          files-folder-recurse: false
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+          description: HagiCode Electron Demo
+          description-url: https://github.com/HagiCode-org/electron_demo
+          timeout: 600
+
+      - name: Verify Windows signatures
+        if: success() && matrix.target.platform == 'windows' && matrix.target.id != 'win-msix' && steps.signing_policy.outputs.required == 'true'
+        shell: bash
+        env:
+          VERIFY_STRICT: 'true'
+        run: |
+          node scripts/verify-signature.js --catalog "${{ steps.windows_artifacts.outputs.catalog_path }}"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v7
@@ -165,6 +350,9 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build-package
     runs-on: ubuntu-latest
+    environment:
+      name: production
+      deployment: false
 
     steps:
       - name: Download build artifacts

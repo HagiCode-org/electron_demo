@@ -107,6 +107,7 @@ function expectPackageOutputs() {
   if (process.platform === 'win32') {
     const hasPortableExe = pkgEntries.some((entry) => entry.name.endsWith('.exe') && !entry.name.includes('Setup'));
     const hasNsisExe = pkgEntries.some((entry) => entry.name.endsWith('.exe') && entry.name.includes('Setup'));
+    const hasMsix = pkgEntries.some((entry) => entry.name.endsWith('.msix'));
     const hasUnpacked = pkgEntries.some((entry) => entry.isDirectory && entry.name === 'win-unpacked');
 
     assertCondition(hasUnpacked, 'win-unpacked output exists', 'win-unpacked output is missing');
@@ -121,7 +122,12 @@ function expectPackageOutputs() {
       return;
     }
 
-    assertCondition(hasPortableExe || hasNsisExe, 'Windows executable exists', 'Windows executable is missing');
+    if (expectedTarget === 'msix') {
+      assertCondition(hasMsix, 'Windows MSIX package exists', 'Windows MSIX package is missing');
+      return;
+    }
+
+    assertCondition(hasPortableExe || hasNsisExe || hasMsix, 'Windows package exists', 'Windows package is missing');
     return;
   }
 
