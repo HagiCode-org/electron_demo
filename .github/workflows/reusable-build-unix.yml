@@ -36,6 +36,18 @@ jobs:
             runs_on: ubuntu-latest
             command: npm run build:linux:appimage
             artifact_path: pkg/*.AppImage
+          - id: linux-deb
+            name: Linux DEB
+            platform: linux
+            runs_on: ubuntu-latest
+            command: npm run build:linux:deb
+            artifact_path: pkg/*.deb
+          - id: linux-rpm
+            name: Linux RPM
+            platform: linux
+            runs_on: ubuntu-latest
+            command: npm run build:linux:rpm
+            artifact_path: pkg/*.rpm
           - id: linux-tar-gz
             name: Linux tar.gz
             platform: linux
@@ -183,6 +195,14 @@ jobs:
             npm cache verify || true
             sleep $((attempt * 10))
           done
+
+      - name: Install Linux packaging dependencies
+        if: success() && matrix.target.id == 'linux-rpm'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y rpm xz-utils
 
       - name: Build unsigned macOS packages
         if: success() && matrix.target.platform == 'mac' && inputs.is_production_build

@@ -24,6 +24,9 @@ win:
     - target: nsis
       arch:
         - x64
+    - target: appx
+      arch:
+        - x64
   icon: resources/icon.ico
 nsis:
   runAfterFinish: false
@@ -58,6 +61,12 @@ mac:
 linux:
   target:
     - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+    - target: rpm
       arch:
         - x64
     - target: tar.gz

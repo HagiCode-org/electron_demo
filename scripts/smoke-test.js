@@ -73,6 +73,8 @@ function expectPackageOutputs() {
 
   if (process.platform === 'linux') {
     const hasAppImage = pkgEntries.some((entry) => entry.name.endsWith('.AppImage'));
+    const hasDeb = pkgEntries.some((entry) => entry.name.endsWith('.deb'));
+    const hasRpm = pkgEntries.some((entry) => entry.name.endsWith('.rpm'));
     const hasTarGz = pkgEntries.some((entry) => entry.name.endsWith('.tar.gz'));
     const hasZip = pkgEntries.some((entry) => entry.name.endsWith('.zip'));
     const hasUnpacked = pkgEntries.some((entry) => entry.isDirectory && entry.name === 'linux-unpacked');
@@ -88,6 +90,16 @@ function expectPackageOutputs() {
       return;
     }
 
+    if (expectedTarget === 'deb') {
+      assertCondition(hasDeb, 'Linux deb exists', 'Linux deb is missing');
+      return;
+    }
+
+    if (expectedTarget === 'rpm') {
+      assertCondition(hasRpm, 'Linux rpm exists', 'Linux rpm is missing');
+      return;
+    }
+
     if (expectedTarget === 'tar.gz') {
       assertCondition(hasTarGz, 'Linux tar.gz exists', 'Linux tar.gz is missing');
       return;
@@ -99,12 +111,15 @@ function expectPackageOutputs() {
     }
 
     assertCondition(hasAppImage, 'Linux AppImage exists', 'Linux AppImage is missing');
+    assertCondition(hasDeb, 'Linux deb exists', 'Linux deb is missing');
+    assertCondition(hasRpm, 'Linux rpm exists', 'Linux rpm is missing');
     assertCondition(hasTarGz, 'Linux tar.gz exists', 'Linux tar.gz is missing');
     assertCondition(hasZip, 'Linux zip exists', 'Linux zip is missing');
     return;
   }
 
   if (process.platform === 'win32') {
+    const hasAppx = pkgEntries.some((entry) => entry.name.endsWith('.appx'));
     const hasPortableExe = pkgEntries.some((entry) => entry.name.endsWith('.exe') && !entry.name.includes('Setup'));
     const hasNsisExe = pkgEntries.some((entry) => entry.name.endsWith('.exe') && entry.name.includes('Setup'));
     const hasMsix = pkgEntries.some((entry) => entry.name.endsWith('.msix'));
@@ -114,6 +129,11 @@ function expectPackageOutputs() {
 
     if (expectedTarget === 'portable') {
       assertCondition(hasPortableExe, 'Windows portable executable exists', 'Windows portable executable is missing');
+      return;
+    }
+
+    if (expectedTarget === 'appx') {
+      assertCondition(hasAppx, 'Windows AppX package exists', 'Windows AppX package is missing');
       return;
     }
 
@@ -127,7 +147,7 @@ function expectPackageOutputs() {
       return;
     }
 
-    assertCondition(hasPortableExe || hasNsisExe || hasMsix, 'Windows package exists', 'Windows package is missing');
+    assertCondition(hasPortableExe || hasNsisExe || hasAppx || hasMsix, 'Windows package exists', 'Windows package is missing');
     return;
   }
 
