@@ -39,16 +39,19 @@ jobs:
             runs_on: windows-2022
             command: npm run build:win:portable
             artifact_path: pkg/*.exe
+            sign_filter: exe
           - id: win-nsis
             name: Windows NSIS
             runs_on: windows-2022
             command: npm run build:win:nsis
             artifact_path: pkg/*Setup*.exe
+            sign_filter: exe
           - id: win-msix
             name: Windows MSIX
             runs_on: windows-2022
             command: npm run build:win:msix
             artifact_path: pkg/*.msix
+            sign_filter: msix
 
     steps:
       - name: Checkout code
@@ -152,7 +155,7 @@ jobs:
           WINAPP_CLI_TELEMETRY_OPTOUT: '1'
 
       - name: Preserve unsigned Windows artifacts
-        if: success() && matrix.target.id != 'win-msix' && steps.signing_policy.outputs.required == 'true'
+        if: success() && steps.signing_policy.outputs.required == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -163,7 +166,7 @@ jobs:
             --suffix unsigned
 
       - name: Collect Windows signable artifacts
-        if: success() && matrix.target.id != 'win-msix'
+        if: success() && steps.signing_policy.outputs.required == 'true'
         id: windows_artifacts
         shell: pwsh
         run: |
@@ -177,6 +180,7 @@ jobs:
           $selectedFiles = switch ('${{ matrix.target.id }}') {
             'win-portable' { @($allFiles | Where-Object { $_.Extension -ieq '.exe' -and $_.Name -notlike '*Setup*' } | Sort-Object FullName -Unique) }
             'win-nsis' { @($allFiles | Where-Object { $_.Extension -ieq '.exe' -and $_.Name -like '*Setup*' } | Sort-Object FullName -Unique) }
+            'win-msix' { @($allFiles | Where-Object { $_.Extension -ieq '.msix' } | Sort-Object FullName -Unique) }
             default { @() }
           }
 
@@ -196,32 +200,28 @@ jobs:
           Add-Content -Path $env:GITHUB_OUTPUT -Value "package_count=$($selectedFiles.Count)"
 
       - name: Azure login for Artifact Signing
-        if: success() && matrix.target.id != 'win-msix' && steps.signing_policy.outputs.required == 'true'
-        uses: azure/login@v2
+        if: success() && steps.signing_policy.outputs.required == 'true'
+        uses: azure/login@v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Sign Windows EXE artifacts with Artifact Signing
-        if: success() && matrix.target.id != 'win-msix' && steps.signing_policy.outputs.required == 'true'
-        uses: azure/artifact-signing-action@v1
+      - name: Sign Windows artifacts with Artifact Signing
+        if: success() && steps.signing_policy.outputs.required == 'true'
+        uses: azure/artifact-signing-action@v2
         with:
           endpoint: ${{ secrets.AZURE_CODESIGN_ENDPOINT }}
           signing-account-name: ${{ secrets.AZURE_CODESIGN_ACCOUNT_NAME }}
           certificate-profile-name: ${{ secrets.AZURE_CODESIGN_CERTIFICATE_PROFILE_NAME }}
-          files-folder: ${{ github.workspace }}/pkg
-          files-folder-filter: '*.exe'
-          files-folder-recurse: false
+          files-folder: ${{ github.workspace }}\pkg
+          files-folder-filter: ${{ matrix.target.sign_filter }}
           file-digest: SHA256
           timestamp-rfc3161: http://timestamp.acs.microsoft.com
           timestamp-digest: SHA256
-          description: HagiCode Electron Demo
-          description-url: https://github.com/HagiCode-org/electron_demo
-          timeout: 600
 
       - name: Verify Windows signatures
-        if: success() && matrix.target.id != 'win-msix' && steps.signing_policy.outputs.required == 'true'
+        if: success() && steps.signing_policy.outputs.required == 'true'
         shell: bash
         env:
           VERIFY_STRICT: 'true'
@@ -237,7 +237,7 @@ jobs:
           retention-days: 14
 
       - name: Upload unsigned Windows artifacts
-        if: success() && matrix.target.id != 'win-msix' && steps.signing_policy.outputs.required == 'true'
+        if: success() && steps.signing_policy.outputs.required == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.target.id }}-unsigned

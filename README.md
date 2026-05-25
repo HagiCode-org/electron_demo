@@ -33,7 +33,7 @@ npm run build:mac:arm64
 - Tag 发布会进入 `production` environment，并发布 GitHub Release
 - 也支持手动触发 `production_build=true` 的 production 构建；此时会走 production 签名校验并仅上传 workflow artifacts，不创建 GitHub Release
 - 正式 production 构建时：
-  - Windows `.exe` 产物要求 Azure Artifact Signing 配置齐全并完成签名校验
+  - Windows `.exe` 与 `.msix` 产物要求 Azure Artifact Signing 配置齐全，并通过 Azure Artifact Signing v2 完成签名与校验
   - macOS 产物要求证书与 notarization 配置齐全后再允许发布
   - 已签名的 Windows / macOS 包会和对应的未签名包一起保留；未签名产物会追加 `-unsigned` 后缀，既会出现在 workflow artifacts 中，也会随 tag release 一起上传
 
