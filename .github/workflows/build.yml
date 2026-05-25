@@ -13,6 +13,7 @@ permissions:
 
 env:
   NODE_VERSION: '22'
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
   ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
   ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
 
@@ -34,7 +35,7 @@ jobs:
             command: npm run build:win
           - id: osx-x64
             label: macOS x64
-            os: macos-13
+            os: macos-15-intel
             command: npm run build:mac:x64
           - id: osx-arm64
             label: macOS arm64
