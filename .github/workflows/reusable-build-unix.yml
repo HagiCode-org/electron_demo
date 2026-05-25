@@ -77,8 +77,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Validate macOS release signing configuration
+      - name: Resolve macOS signing mode
         if: success() && matrix.target.platform == 'mac' && inputs.is_production_build
+        id: mac_signing
         shell: bash
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
@@ -117,10 +118,21 @@ jobs:
           fi
 
           if [[ ${#missing[@]} -gt 0 ]]; then
-            printf '::error::Missing macOS release signing configuration: %s\n' "$(IFS=', '; echo "${missing[*]}")"
-            exit 1
+            echo 'enabled=false' >> "$GITHUB_OUTPUT"
+            printf '::warning::Missing macOS release signing configuration: %s. Falling back to unsigned macOS build.\n' "$(IFS=', '; echo "${missing[*]}")"
+            {
+              echo '## macOS signing fallback'
+              echo
+              echo 'Production macOS signing configuration is incomplete. This job will publish unsigned macOS packages only.'
+              echo
+              echo 'Missing values:'
+              for key in "${missing[@]}"; do
+                echo "- ${key}"
+              done
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'enabled=true' >> "$GITHUB_OUTPUT"
           fi
-
 
       - name: Sync package version
         shell: bash
@@ -192,14 +204,14 @@ jobs:
             --suffix unsigned
 
       - name: Reset macOS package output for signed artifacts
-        if: success() && matrix.target.platform == 'mac' && inputs.is_production_build
+        if: success() && matrix.target.platform == 'mac' && inputs.is_production_build && steps.mac_signing.outputs.enabled == 'true'
         shell: bash
         run: |
           rm -rf pkg
           mkdir -p pkg
 
       - name: Prepare macOS release signing environment
-        if: success() && matrix.target.platform == 'mac' && inputs.is_production_build
+        if: success() && matrix.target.platform == 'mac' && inputs.is_production_build && steps.mac_signing.outputs.enabled == 'true'
         shell: bash
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
@@ -225,10 +237,11 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Build packages
+        if: success() && (matrix.target.platform != 'mac' || !inputs.is_production_build || steps.mac_signing.outputs.enabled == 'true')
         run: ${{ matrix.target.command }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: ${{ matrix.target.platform == 'mac' && inputs.is_production_build && 'true' || 'false' }}
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ matrix.target.platform == 'mac' && steps.mac_signing.outputs.enabled == 'true' && 'true' || 'false' }}
           WINAPP_CLI_TELEMETRY_OPTOUT: '1'
 
       - name: Upload build artifacts

@@ -34,7 +34,7 @@ npm run build:mac:arm64
 - 也支持手动触发 `production_build=true` 的 production 构建；此时会走 production 签名校验并仅上传 workflow artifacts，不创建 GitHub Release
 - 正式 production 构建时：
   - Windows `.exe` 与 `.msix` 产物要求 Azure Artifact Signing 配置齐全，并通过 Azure Artifact Signing v2 完成签名与校验
-  - macOS 产物要求证书与 notarization 配置齐全后再允许发布
+  - macOS 产物在签名材料齐全时会同时产出 signed 与 unsigned 包；如果 production 环境缺少签名或 notarization 要素，会自动回退为 unsigned-only 构建，不阻塞发布链路
   - 已签名的 Windows / macOS 包会和对应的未签名包一起保留；未签名产物会追加 `-unsigned` 后缀，既会出现在 workflow artifacts 中，也会随 tag release 一起上传
 
 ## Release 环境变量
@@ -43,6 +43,7 @@ npm run build:mac:arm64
 
 - Windows 签名：`AZURE_CLIENT_ID`、`AZURE_TENANT_ID`、`AZURE_SUBSCRIPTION_ID`、`AZURE_CODESIGN_ENDPOINT`、`AZURE_CODESIGN_ACCOUNT_NAME`、`AZURE_CODESIGN_CERTIFICATE_PROFILE_NAME`
 - macOS 签名证书：`CSC_LINK`、`CSC_KEY_PASSWORD`
+  - 如果缺失，production 会回退为 unsigned-only 的 macOS 构建
 - macOS notarization：
   - 推荐 API key 方案：`APPLE_API_KEY`、`APPLE_API_KEY_ID`、`APPLE_API_ISSUER`
   - 或 Apple ID 方案：`APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID`
