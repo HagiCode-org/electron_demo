@@ -10,7 +10,7 @@
 - `src/preload`：上下文桥接
 - `src/renderer`：React + Vite 首页
 - `scripts`：打包辅助、MSIX 组装、签名校验与 smoke test
-- `.github/workflows`：PR 校验、多平台构建、Release Drafter
+- `.github/workflows`：PR 校验、入口编排 workflow、平台复用 workflow、Release Drafter
 
 ## 常用命令
 
