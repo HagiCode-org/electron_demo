@@ -198,21 +198,6 @@ jobs:
           Add-Content -Path $env:GITHUB_OUTPUT -Value "selected_file_name=$($selectedFile.Name)"
           Add-Content -Path $env:GITHUB_OUTPUT -Value "selected_file_path=$($selectedFile.FullName)"
 
-      - name: Ensure PowerShell Gallery is available
-        if: success() && steps.signing_policy.outputs.required == 'true'
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-          Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force | Out-Null
-
-          $repository = Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue
-          if (-not $repository) {
-            Register-PSRepository               -Name PSGallery               -SourceLocation 'https://www.powershellgallery.com/api/v2'               -PublishLocation 'https://www.powershellgallery.com/api/v2/package/'               -ScriptSourceLocation 'https://www.powershellgallery.com/api/v2/items/psscript'               -ScriptPublishLocation 'https://www.powershellgallery.com/api/v2/package/'               -InstallationPolicy Trusted
-          } else {
-            Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-          }
-
       - name: Azure login for Artifact Signing
         if: success() && steps.signing_policy.outputs.required == 'true'
         uses: azure/login@v3
