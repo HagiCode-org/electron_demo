@@ -47,11 +47,6 @@ jobs:
             runs_on: windows-2025
             command: npm run build:win:nsis
             artifact_path: pkg/*Setup*.exe
-          - id: win-appx
-            name: Windows AppX
-            runs_on: windows-2025
-            command: npm run build:win:appx
-            artifact_path: pkg/*.appx
           - id: win-msix
             name: Windows MSIX
             runs_on: windows-2025
@@ -187,7 +182,6 @@ jobs:
           $selectedFiles = switch ('${{ matrix.target.id }}') {
             'win-portable' { @($allFiles | Where-Object { $_.Extension -ieq '.exe' -and $_.Name -notlike '*Setup*' } | Sort-Object FullName -Unique) }
             'win-nsis' { @($allFiles | Where-Object { $_.Extension -ieq '.exe' -and $_.Name -like '*Setup*' } | Sort-Object FullName -Unique) }
-            'win-appx' { @($allFiles | Where-Object { $_.Extension -ieq '.appx' } | Sort-Object FullName -Unique) }
             'win-msix' { @($allFiles | Where-Object { $_.Extension -ieq '.msix' } | Sort-Object FullName -Unique) }
             default { @() }
           }

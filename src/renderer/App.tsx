@@ -6,7 +6,7 @@ const repoUrl = 'https://github.com/HagiCode-org/electron_demo';
 const checks = [
   '保留 Electron 三段式结构：main / preload / renderer',
   '保留基于 Vite 的 renderer 与 preload 构建',
-  '保留 electron-builder 多平台打包入口',
+  '保留 Electron Forge 多平台打包入口',
   '保留 GitHub Actions 的 PR 校验与 build/release 通道',
 ];
 
@@ -41,7 +41,7 @@ function App() {
         <h1>最小可发布 Electron 应用</h1>
         <p className="hero-copy">
           这个仓库只保留未来 GitHub Actions 打包验证真正需要的骨架：Electron 主进程、preload 桥接、React 首页、
-          electron-builder 配置，以及 Linux / Windows / macOS 的发布构建路径。
+          Electron Forge 配置，以及 Linux / Windows / macOS 的发布构建路径。
         </p>
 
         <div className="hero-actions">

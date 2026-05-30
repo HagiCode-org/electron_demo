@@ -119,7 +119,6 @@ function expectPackageOutputs() {
   }
 
   if (process.platform === 'win32') {
-    const hasAppx = pkgEntries.some((entry) => entry.name.endsWith('.appx'));
     const hasPortableExe = pkgEntries.some((entry) => entry.name.endsWith('.exe') && !entry.name.includes('Setup'));
     const hasNsisExe = pkgEntries.some((entry) => entry.name.endsWith('.exe') && entry.name.includes('Setup'));
     const hasMsix = pkgEntries.some((entry) => entry.name.endsWith('.msix'));
@@ -129,11 +128,6 @@ function expectPackageOutputs() {
 
     if (expectedTarget === 'portable') {
       assertCondition(hasPortableExe, 'Windows portable executable exists', 'Windows portable executable is missing');
-      return;
-    }
-
-    if (expectedTarget === 'appx') {
-      assertCondition(hasAppx, 'Windows AppX package exists', 'Windows AppX package is missing');
       return;
     }
 
@@ -147,7 +141,7 @@ function expectPackageOutputs() {
       return;
     }
 
-    assertCondition(hasPortableExe || hasNsisExe || hasAppx || hasMsix, 'Windows package exists', 'Windows package is missing');
+    assertCondition(hasPortableExe || hasNsisExe || hasMsix, 'Windows package exists', 'Windows package is missing');
     return;
   }
 
