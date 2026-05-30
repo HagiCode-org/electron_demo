@@ -10,6 +10,8 @@ const description = 'Minimal Electron demo app for CI packaging validation';
 const authorName = 'newbe36524';
 const homepage = 'https://github.com/HagiCode-org/electron_demo';
 const windowsPublisher = String(process.env.WINDOWS_PACKAGE_PUBLISHER || 'CN=8B6C8A94-AAE5-4C8B-9202-A29EA42B042F').trim();
+const executableName = 'electron-demo';
+const windowsKitVersion = String(process.env.WINDOWS_KIT_VERSION || '10.0.26100.0').trim();
 
 const iconBasePath = path.join(__dirname, 'resources', 'icon');
 const pngIconPath = path.join(__dirname, 'resources', 'icon.png');
@@ -70,6 +72,7 @@ export default {
     asar: true,
     appBundleId: appId,
     appCategoryType: 'public.app-category.developer-tools',
+    executableName,
     icon: iconBasePath,
     extraResource: [pngIconPath],
     ignore: [
@@ -95,6 +98,7 @@ export default {
       config: {
         options: {
           name: 'electron-demo',
+          bin: executableName,
           productName,
           categories: ['Development'],
           icon: pngIconPath,
@@ -107,6 +111,7 @@ export default {
       config: {
         options: {
           name: 'electron-demo',
+          bin: executableName,
           productName,
           genericName: 'Developer Tools',
           description,
@@ -126,6 +131,7 @@ export default {
       config: {
         options: {
           name: 'electron-demo',
+          bin: executableName,
           productName,
           genericName: 'Developer Tools',
           description,
@@ -140,7 +146,7 @@ export default {
     },
     {
       name: '@electron-forge/maker-zip',
-      platforms: ['linux'],
+      platforms: ['linux', 'darwin'],
       config: {},
     },
     {
@@ -161,6 +167,7 @@ export default {
       config: {
         packageAssets: msixAssetsPath,
         sign: false,
+        windowsKitVersion,
         manifestVariables: {
           publisher: windowsPublisher,
           publisherDisplayName: 'HagiCode',
@@ -180,11 +187,6 @@ export default {
       config: {
         icon: icnsIconPath,
       },
-    },
-    {
-      name: '@electron-forge/maker-zip',
-      platforms: ['darwin'],
-      config: {},
     },
   ],
 };
