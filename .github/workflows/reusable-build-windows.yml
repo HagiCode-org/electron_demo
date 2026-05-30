@@ -149,6 +149,34 @@ jobs:
             sleep $((attempt * 10))
           done
 
+      - name: Resolve Windows SDK for MSIX packaging
+        if: success() && matrix.target.id == 'win-msix'
+        id: windows_sdk
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $windowsKitsRoot = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
+          if (-not (Test-Path $windowsKitsRoot)) {
+            throw "Windows Kits bin directory not found: $windowsKitsRoot"
+          }
+
+          $sdkDirectory = Get-ChildItem -Path $windowsKitsRoot -Directory |
+            Where-Object {
+              $_.Name -match '^\d+\.\d+\.\d+\.\d+$' -and
+              (Test-Path (Join-Path $_.FullName 'x64\makeappx.exe')) -and
+              (Test-Path (Join-Path $_.FullName 'x64\makepri.exe'))
+            } |
+            Sort-Object { [version] $_.Name } -Descending |
+            Select-Object -First 1
+
+          if (-not $sdkDirectory) {
+            throw "No Windows SDK with makeappx.exe and makepri.exe was found under $windowsKitsRoot"
+          }
+
+          "WINDOWS_KIT_VERSION=$($sdkDirectory.Name)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "version=$($sdkDirectory.Name)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- Resolved Windows SDK for MSIX: $($sdkDirectory.Name)"
+
       - name: Build packages
         run: ${{ matrix.target.command }}
         env:

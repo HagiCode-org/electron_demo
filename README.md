@@ -34,6 +34,7 @@ npm run build:mac:arm64
 - Linux targets include `AppImage`, `deb`, `rpm`, `tar.gz`, and `zip`
 - Packaging now uses Electron Forge makers instead of the previous `electron-builder` CLI wrapper
 - Windows targets include `portable`, `nsis`, and `msix`
+- The MSIX path now matches Microsoft's recommended Forge flow more closely: package the app first, generate an explicit `Package.appxmanifest`, then let the MSIX maker build from that packaged layout
 - Tag releases enter the `production` environment and upload assets progressively to an already-created GitHub Release as each matrix job finishes
 - Manual triggers with `production_build=true` also run production builds; they follow production signing checks and only upload workflow artifacts without creating a GitHub Release
 - For production builds:
@@ -56,3 +57,11 @@ Production tag releases and manual triggers with `production_build=true` require
 `msix` remains in the Windows release matrix and is uploaded as a release artifact. The workflow injects `WINDOWS_PACKAGE_PUBLISHER` so the manifest `Publisher` matches the signing certificate subject. For `msix`, production signing is still attempted via Azure Artifact Signing v2, but if that step fails only the unsigned `win-msix-unsigned` artifact is kept.
 
 Manual production build example: run `Build Electron Demo` from the Actions page with `production_build` set to `true`. This binds to the `production` environment, executes production-level signing pre-checks, and preserves artifacts in workflow artifacts. Tag-driven releases now assume the GitHub Release already exists and each matrix job uploads its assets directly with `gh release upload --clobber`.
+
+## MSIX Notes
+
+- [resources/msix/Package.appxmanifest.template.xml](/home/newbe36524/repos/hagicode-mono/repos/electron_demo/resources/msix/Package.appxmanifest.template.xml:1) is the source manifest template. Forge prepares the final file at `.cache/msix/Package.appxmanifest` during Windows packaging.
+- The generated manifest pins `Executable="app\\electron-demo.exe"`, so the MSIX entry point matches `packagerConfig.executableName` instead of Forge's default app folder name.
+- Local signing is optional. If `devcert.pfx` exists and `WINDOWS_CERTIFICATE_PASSWORD` is set, Forge signs during MSIX packaging. Otherwise it produces an unsigned MSIX and CI can keep using Azure signing afterward.
+- `WINDOWS_KIT_VERSION` is optional now. If you leave it unset, the MSIX tooling falls back to the SDK version implied by the manifest `MinVersion`, which is closer to the Microsoft guidance for avoiding Windows SDK lookup mismatches.
+- GitHub Actions now resolves the installed Windows SDK version on the runner before the `msix` job and exports it as `WINDOWS_KIT_VERSION`, so the build does not depend on the manifest `MinVersion` matching the exact SDK version preinstalled on `windows-2025`.

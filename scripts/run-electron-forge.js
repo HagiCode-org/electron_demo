@@ -13,9 +13,6 @@ const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..');
 const outDir = path.join(projectRoot, 'out');
 const packageDir = path.join(projectRoot, 'pkg');
-const msixDefaultAssetsDir = path.join(projectRoot, 'node_modules', 'electron-windows-msix', 'static', 'assets');
-const msixCustomAssetsDir = path.join(projectRoot, 'resources', 'appx');
-const msixGeneratedAssetsDir = path.join(projectRoot, '.cache', 'msix-assets');
 const packageJson = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8'));
 const makeDistributables = makeDistributablesModule.default ?? makeDistributablesModule;
 const packageApplication = packageApplicationModule.default ?? packageApplicationModule;
@@ -139,31 +136,6 @@ async function resetOutputDirectories() {
   await fsp.mkdir(packageDir, { recursive: true });
 }
 
-async function prepareMsixAssets() {
-  await fsp.rm(msixGeneratedAssetsDir, { recursive: true, force: true });
-  await fsp.mkdir(path.dirname(msixGeneratedAssetsDir), { recursive: true });
-  await fsp.cp(msixDefaultAssetsDir, msixGeneratedAssetsDir, { recursive: true });
-
-  if (fs.existsSync(msixCustomAssetsDir)) {
-    await fsp.cp(msixCustomAssetsDir, msixGeneratedAssetsDir, { recursive: true, force: true });
-  }
-
-  const requiredAssets = [
-    'icon.png',
-    'Square44x44Logo.png',
-    'Square150x150Logo.png',
-  ];
-
-  for (const assetName of requiredAssets) {
-    const assetPath = path.join(msixGeneratedAssetsDir, assetName);
-    if (!fs.existsSync(assetPath)) {
-      throw new Error(`Missing required MSIX asset after preparation: ${assetName}`);
-    }
-  }
-
-  console.log(`[electron-forge] prepared MSIX assets in ${path.relative(projectRoot, msixGeneratedAssetsDir)}`);
-}
-
 function resolveUnpackedDestination(platform, arch) {
   if (platform === 'linux') {
     return path.join(packageDir, 'linux-unpacked');
@@ -264,10 +236,6 @@ async function main() {
   }
 
   const forgeTargets = mapForgeTargets(options.platform, options.targets);
-  if (options.platform === 'win32' && forgeTargets.includes('@electron-forge/maker-msix')) {
-    await prepareMsixAssets();
-  }
-
   if (forgeTargets.length > 0) {
     const makeResults = await makeDistributables({
       dir: projectRoot,

@@ -1,22 +1,26 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  getMsixPaths,
+  msixExecutableName,
+  resolveMsixSigningConfig,
+} from './scripts/msix-config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const productName = 'HagiCode Electron Demo';
 const appId = 'com.hagicode.electrondemo';
-const packageIdentity = 'HagiCodeOrg.ElectronDemo';
 const description = 'Minimal Electron demo app for CI packaging validation';
 const authorName = 'newbe36524';
 const homepage = 'https://github.com/HagiCode-org/electron_demo';
-const windowsPublisher = String(process.env.WINDOWS_PACKAGE_PUBLISHER || 'CN=8B6C8A94-AAE5-4C8B-9202-A29EA42B042F').trim();
-const executableName = 'electron-demo';
-const windowsKitVersion = String(process.env.WINDOWS_KIT_VERSION || '10.0.26100.0').trim();
+const executableName = msixExecutableName;
+const windowsKitVersion = String(process.env.WINDOWS_KIT_VERSION || '').trim();
 
 const iconBasePath = path.join(__dirname, 'resources', 'icon');
 const pngIconPath = path.join(__dirname, 'resources', 'icon.png');
 const icnsIconPath = path.join(__dirname, 'resources', 'icon.icns');
-const msixAssetsPath = path.join(__dirname, '.cache', 'msix-assets');
+const { generatedAssetsPath: msixAssetsPath, manifestOutputPath: msixManifestPath } = getMsixPaths(__dirname);
+const msixSigningConfig = resolveMsixSigningConfig(__dirname);
 
 function resolveMacSignConfig() {
   if (String(process.env.HAGICODE_ENABLE_MAC_SIGNING || '').trim() !== 'true') {
@@ -68,6 +72,16 @@ const macSignConfig = resolveMacSignConfig();
 const macNotarizeConfig = resolveMacNotarizeConfig();
 
 export default {
+  hooks: {
+    async prePackage(_forgeConfig, platform, arch) {
+      if (platform !== 'win32') {
+        return;
+      }
+
+      const { prepareMsixArtifacts } = await import('./scripts/prepare-msix.js');
+      await prepareMsixArtifacts({ platform, arch });
+    },
+  },
   packagerConfig: {
     asar: true,
     appBundleId: appId,
@@ -76,10 +90,17 @@ export default {
     icon: iconBasePath,
     extraResource: [pngIconPath],
     ignore: [
+      /^\/\.winapp($|\/)/,
       /^\/\.cache\//,
       /^\/out\//,
       /^\/pkg\//,
+      /^\/winapp\.yaml$/,
       /^\/unsigned-artifacts\//,
+      /\.pfx$/i,
+      /\.pdb$/i,
+      /^\/obj($|\/)/,
+      /^\/bin($|\/)/,
+      /\.msix$/i,
       /\.map$/,
     ],
     win32metadata: {
@@ -166,20 +187,11 @@ export default {
       name: '@electron-forge/maker-msix',
       platforms: ['win32'],
       config: {
+        appManifest: msixManifestPath,
         packageAssets: msixAssetsPath,
-        sign: false,
-        windowsKitVersion,
-        manifestVariables: {
-          publisher: windowsPublisher,
-          publisherDisplayName: 'HagiCode',
-          packageIdentity,
-          packageDisplayName: productName,
-          packageDescription: description,
-          packageBackgroundColor: 'transparent',
-          appDisplayName: productName,
-          packageMinOSVersion: '10.0.19041.0',
-          packageMaxOSVersionTested: '10.0.19041.0',
-        },
+        logLevel: 'warn',
+        ...(windowsKitVersion ? { windowsKitVersion } : {}),
+        ...msixSigningConfig,
       },
     },
     {
