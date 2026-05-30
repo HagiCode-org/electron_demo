@@ -16,7 +16,7 @@ const windowsKitVersion = String(process.env.WINDOWS_KIT_VERSION || '10.0.26100.
 const iconBasePath = path.join(__dirname, 'resources', 'icon');
 const pngIconPath = path.join(__dirname, 'resources', 'icon.png');
 const icnsIconPath = path.join(__dirname, 'resources', 'icon.icns');
-const msixAssetsPath = path.join(__dirname, 'resources', 'appx');
+const msixAssetsPath = path.join(__dirname, '.cache', 'msix-assets');
 
 function resolveMacSignConfig() {
   if (String(process.env.HAGICODE_ENABLE_MAC_SIGNING || '').trim() !== 'true') {
@@ -76,6 +76,7 @@ export default {
     icon: iconBasePath,
     extraResource: [pngIconPath],
     ignore: [
+      /^\/\.cache\//,
       /^\/out\//,
       /^\/pkg\//,
       /^\/unsigned-artifacts\//,

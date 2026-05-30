@@ -2,5 +2,5 @@ node_modules
 dist
 pkg
 .cache
+.cache/msix-assets
 *.log
-
