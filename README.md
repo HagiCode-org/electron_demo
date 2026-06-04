@@ -27,6 +27,24 @@ npm run build:mac:x64
 npm run build:mac:arm64
 ```
 
+## PM2 Validation Page
+
+The renderer home page is now a validation lab for the desktop `pm2` scenario.
+
+- It probes whether local `pm2`, `dotnet`, and `node` are visible from the Electron main process.
+- It lets you run `pm2 start/restart/stop/delete/describe/logs/jlist/ping` through the preload bridge.
+- It ships a bundled heartbeat worker at `resources/pm2/heartbeat-worker.cjs`, so you can validate `Electron -> local pm2 -> packaged resource` before switching to a real `.NET` server.
+- It shows PSF-related runtime evidence, including the expected launcher name and whether `config.json` exists next to the packaged executable.
+
+Recommended validation flow:
+
+1. Run `npm run dev`.
+2. Use `填充心跳脚本示例`, then click `pm2 start`, `jlist`, and `logs`.
+3. If the local `pm2` chain works, switch to `填充 .NET Server 示例`, replace the DLL path, and repeat the same actions.
+4. On Windows packaging runs, compare the same flow with and without PSF enabled.
+
+The validation page also supports a dedicated `PM2_HOME` and an automatic no-space alias for paths that contain spaces, which mirrors the behavior the desktop app needs for reliable `pm2` execution.
+
 ## CI Design
 
 - `pr-checks.yml` — Install, type check, production build, and Linux dir packaging self-check
@@ -61,7 +79,43 @@ Manual production build example: run `Build Electron Demo` from the Actions page
 ## MSIX Notes
 
 - [resources/msix/Package.appxmanifest.template.xml](/home/newbe36524/repos/hagicode-mono/repos/electron_demo/resources/msix/Package.appxmanifest.template.xml:1) is the source manifest template. Forge prepares the final file at `.cache/msix/Package.appxmanifest` during Windows packaging.
+- The demo MSIX manifest now marks the packaged app as an explicit full-trust desktop app by combining `Windows.FullTrustApplication`, `runFullTrust`, `uap10:RuntimeBehavior="win32App"`, and `uap10:TrustLevel="mediumIL"`.
 - The generated manifest pins `Executable="app\\electron-demo.exe"`, so the MSIX entry point matches `packagerConfig.executableName` instead of Forge's default app folder name.
 - Local signing is optional. If `devcert.pfx` exists and `WINDOWS_CERTIFICATE_PASSWORD` is set, Forge signs during MSIX packaging. Otherwise it produces an unsigned MSIX and CI can keep using Azure signing afterward.
 - `WINDOWS_KIT_VERSION` is optional now. If you leave it unset, the MSIX tooling falls back to the SDK version implied by the manifest `MinVersion`, which is closer to the Microsoft guidance for avoiding Windows SDK lookup mismatches.
 - GitHub Actions now resolves the installed Windows SDK version on the runner before the `msix` job and exports it as `WINDOWS_KIT_VERSION`, so the build does not depend on the manifest `MinVersion` matching the exact SDK version preinstalled on `windows-2025`.
+
+## Optional PSF Injection
+
+The demo now includes an opt-in PSF path for Windows x64 MSIX builds. It is disabled by default so the existing Forge packaging flow stays stable.
+
+Enable it by setting:
+
+```bash
+ELECTRON_DEMO_ENABLE_PSF=true
+ELECTRON_DEMO_PSF_DIR=/absolute/path/to/psf
+```
+
+`ELECTRON_DEMO_PSF_DIR` must contain:
+
+- `PsfLauncher64.exe`
+- `PsfRuntime64.dll`
+- `ProcessLauncherFixup64.dll`
+- `FileRedirectionFixup64.dll`
+
+When enabled:
+
+- `scripts/prepare-msix.js` rewrites the manifest entry executable to `PsfLauncher64.exe`.
+- `forge.config.js` keeps using Forge, but injects PSF binaries plus `config.json` into the packaged output during `postPackage`.
+- `resources/psf/config.template.json` is rendered so the real app entry remains `app\\electron-demo.exe`, while `ProcessLauncherFixup64.dll` prevents breakaway on spawned child processes.
+
+Example:
+
+```bash
+cd repos/electron_demo
+ELECTRON_DEMO_ENABLE_PSF=true \
+ELECTRON_DEMO_PSF_DIR="C:/tools/psf" \
+npm run build:win:msix
+```
+
+This gives the demo a concrete place to verify the claim that Electron can still drive local `pm2` correctly inside an MSIX package when PSF is used to keep child-process launches inside the package identity boundary.

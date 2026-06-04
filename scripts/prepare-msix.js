@@ -5,6 +5,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getMsixPaths, resolveMsixManifestConfig } from './msix-config.js';
+import { resolvePsfBuildConfig } from './psf-support.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -95,6 +96,7 @@ export async function prepareMsixArtifacts({ arch, platform = 'win32' }) {
     version: packageJson.version,
     arch,
   });
+  const psfConfig = resolvePsfBuildConfig(projectRoot, arch);
   const template = await fsp.readFile(paths.manifestTemplatePath, 'utf8');
   const manifest = replaceTemplateTokens(template, {
     PACKAGE_IDENTITY: manifestConfig.packageIdentity,
@@ -106,7 +108,7 @@ export async function prepareMsixArtifacts({ arch, platform = 'win32' }) {
     PACKAGE_DESCRIPTION: manifestConfig.packageDescription,
     PACKAGE_MIN_OS_VERSION: manifestConfig.packageMinOsVersion,
     PACKAGE_MAX_OS_VERSION_TESTED: manifestConfig.packageMaxOsVersionTested,
-    APP_EXECUTABLE: manifestConfig.appExecutable,
+    APP_EXECUTABLE: psfConfig.enabled ? psfConfig.launcherName : manifestConfig.appExecutable,
     APP_DISPLAY_NAME: manifestConfig.appDisplayName,
     PACKAGE_BACKGROUND_COLOR: manifestConfig.packageBackgroundColor,
   });
@@ -117,6 +119,10 @@ export async function prepareMsixArtifacts({ arch, platform = 'win32' }) {
 
   console.log(`[msix] prepared manifest ${path.relative(projectRoot, paths.manifestOutputPath)}`);
   console.log(`[msix] prepared assets ${path.relative(projectRoot, paths.generatedAssetsPath)}`);
+
+  if (psfConfig.enabled) {
+    console.log(`[psf] manifest entry redirected to ${psfConfig.launcherName}`);
+  }
 }
 
 async function main() {

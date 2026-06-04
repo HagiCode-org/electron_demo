@@ -1,7 +1,19 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { DemoAppInfo, DemoPlatformId, ExternalOpenResult } from '../shared/demo-api.js';
+import {
+  inspectPm2Environment,
+  runPm2Action,
+  startPm2Process,
+} from './pm2-lab.js';
+import type {
+  DemoAppInfo,
+  DemoEnvironmentRequest,
+  DemoPlatformId,
+  ExternalOpenResult,
+  Pm2ActionRequest,
+  Pm2StartRequest,
+} from '../shared/demo-api.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEV_RENDERER_HOST = '127.0.0.1';
@@ -61,6 +73,9 @@ function createAppInfo(): DemoAppInfo {
 
 function registerIpcHandlers(): void {
   ipcMain.handle('demo:get-app-info', () => createAppInfo());
+  ipcMain.handle('demo:inspect-pm2-environment', (_event, request?: DemoEnvironmentRequest) => inspectPm2Environment(request));
+  ipcMain.handle('demo:start-pm2-process', (_event, request: Pm2StartRequest) => startPm2Process(request));
+  ipcMain.handle('demo:run-pm2-action', (_event, request: Pm2ActionRequest) => runPm2Action(request));
   ipcMain.handle('demo:open-external', async (_event, url: string): Promise<ExternalOpenResult> => {
     try {
       await shell.openExternal(url);

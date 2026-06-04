@@ -5,6 +5,7 @@ import {
   msixExecutableName,
   resolveMsixSigningConfig,
 } from './scripts/msix-config.js';
+import { injectPsfIntoPackagedOutputs } from './scripts/psf-support.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -81,6 +82,9 @@ export default {
       const { prepareMsixArtifacts } = await import('./scripts/prepare-msix.js');
       await prepareMsixArtifacts({ platform, arch });
     },
+    async postPackage(_forgeConfig, packageResult) {
+      await injectPsfIntoPackagedOutputs(__dirname, packageResult);
+    },
   },
   packagerConfig: {
     asar: true,
@@ -88,7 +92,11 @@ export default {
     appCategoryType: 'public.app-category.developer-tools',
     executableName,
     icon: iconBasePath,
-    extraResource: [pngIconPath],
+    extraResource: [
+      pngIconPath,
+      path.join(__dirname, 'resources', 'pm2'),
+      path.join(__dirname, 'resources', 'psf'),
+    ],
     ignore: [
       /^\/\.winapp($|\/)/,
       /^\/\.cache\//,
