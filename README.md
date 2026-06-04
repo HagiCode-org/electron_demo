@@ -79,7 +79,7 @@ Manual production build example: run `Build Electron Demo` from the Actions page
 ## MSIX Notes
 
 - [resources/msix/Package.appxmanifest.template.xml](/home/newbe36524/repos/hagicode-mono/repos/electron_demo/resources/msix/Package.appxmanifest.template.xml:1) is the source manifest template. Forge prepares the final file at `.cache/msix/Package.appxmanifest` during Windows packaging.
-- The demo MSIX manifest now marks the packaged app as an explicit full-trust desktop app by combining `Windows.FullTrustApplication`, `runFullTrust`, `uap10:RuntimeBehavior="win32App"`, and `uap10:TrustLevel="mediumIL"`.
+- The demo MSIX manifest now marks the packaged app as an explicit full-trust desktop app by combining `Windows.FullTrustApplication`, `runFullTrust`, `uap10:RuntimeBehavior="packagedClassicApp"`, and `uap10:TrustLevel="mediumIL"`.
 - The generated manifest pins `Executable="app\\electron-demo.exe"`, so the MSIX entry point matches `packagerConfig.executableName` instead of Forge's default app folder name.
 - Local signing is optional. If `devcert.pfx` exists and `WINDOWS_CERTIFICATE_PASSWORD` is set, Forge signs during MSIX packaging. Otherwise it produces an unsigned MSIX and CI can keep using Azure signing afterward.
 - `WINDOWS_KIT_VERSION` is optional now. If you leave it unset, the MSIX tooling falls back to the SDK version implied by the manifest `MinVersion`, which is closer to the Microsoft guidance for avoiding Windows SDK lookup mismatches.

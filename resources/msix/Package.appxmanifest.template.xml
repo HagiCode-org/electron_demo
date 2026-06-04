@@ -34,7 +34,7 @@
     <Application
       Id="App"
       Executable="app\{{APP_EXECUTABLE}}"
-      uap10:RuntimeBehavior="win32App"
+      uap10:RuntimeBehavior="packagedClassicApp"
       uap10:TrustLevel="mediumIL"
       EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
