@@ -39,17 +39,17 @@ jobs:
         target:
           - id: win-portable
             name: Windows Portable
-            runs_on: windows-2025
+            runs_on: windows-2025-vs2026
             command: npm run build:win:portable
             artifact_path: pkg/*.exe
           - id: win-nsis
             name: Windows NSIS
-            runs_on: windows-2025
+            runs_on: windows-2025-vs2026
             command: npm run build:win:nsis
             artifact_path: pkg/*Setup*.exe
           - id: win-msix
             name: Windows MSIX
-            runs_on: windows-2025
+            runs_on: windows-2025-vs2026
             command: npm run build:win:msix
             artifact_path: pkg/*.msix
 
