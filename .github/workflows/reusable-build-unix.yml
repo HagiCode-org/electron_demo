@@ -17,7 +17,7 @@ permissions:
   contents: write
 
 env:
-  NODE_VERSION: 24'
+  NODE_VERSION: "24"
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
   ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
   ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
