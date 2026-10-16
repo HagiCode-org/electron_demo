@@ -39,17 +39,18 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Resolve version from commit history
+      - name: Draft release and resolve version with hagi-release-drafter
         id: draft
         if: github.ref == 'refs/heads/main'
-        shell: bash
-        run: echo "resolved_version=$(node .github/scripts/release-notes.mjs version)" >> "$GITHUB_OUTPUT"
+        uses: HagiCode-org/hagi-release-drafter@v0.1.2
+        with:
+          title-template: 'v{version}'
 
       - name: Resolve release metadata
         id: meta
         shell: bash
         env:
-          DRAFT_VERSION: ${{ steps.draft.outputs.resolved_version || '' }}
+          DRAFT_VERSION: ${{ steps.draft.outputs.version || '' }}
           MANUAL_PRODUCTION_BUILD: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.production_build == 'true' && 'true' || 'false' }}
         run: |
           set -euo pipefail
