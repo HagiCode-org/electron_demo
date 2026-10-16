@@ -32,12 +32,18 @@ jobs:
       is_production_build: ${{ steps.meta.outputs.is_production_build }}
 
     steps:
-      - name: Resolve version from release drafter
+      - name: Checkout commit history
+        if: github.ref == 'refs/heads/main'
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Resolve version from commit history
         id: draft
         if: github.ref == 'refs/heads/main'
-        uses: release-drafter/release-drafter@v7
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: echo "resolved_version=$(node .github/scripts/release-notes.mjs version)" >> "$GITHUB_OUTPUT"
 
       - name: Resolve release metadata
         id: meta
