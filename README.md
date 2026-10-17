@@ -1,5 +1,8 @@
 # HagiCode Electron Demo
 
+[![release](https://img.shields.io/github/v/release/HagiCode-org/electron_demo)](https://github.com/HagiCode-org/electron_demo/releases)
+[![build](https://img.shields.io/github/actions/workflow/status/HagiCode-org/electron_demo/build.yml?branch=main&label=build)](https://github.com/HagiCode-org/electron_demo/actions/workflows/build.yml)
+
 A minimal Electron demo that compiles, packages, and runs through a GitHub Actions multi-platform build pipeline.
 
 The goal is not to carry business logic, but to preserve the core engineering structure of `hagicode-desktop` and serve as a fast lane for validating Electron build, packaging, and release workflows.
