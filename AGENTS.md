@@ -17,17 +17,23 @@ Run commands from `repos/electron_demo/`.
 ```bash
 npm ci
 npm run dev
-npm run build:prod
+npm run build:prod          # typecheck + build + smoke-test
+npm run build:tsc:check     # typecheck main, preload, renderer
 npm run smoke-test
+npm run build:linux:dir     # Linux package-only self-check used by PR checks
 ```
+
+CI uses Node.js 24. Platform builds (`build:linux`, `build:win`, `build:mac:*`) package through Electron Forge via `scripts/run-electron-forge.js`.
 
 ## Key Paths
 
 - `src/main/`: Electron main process
 - `src/preload/`: context bridge
-- `src/renderer/`: React + Vite home page
+- `src/renderer/`: React + Vite home page (PM2 validation lab UI)
+- `src/main/pm2-lab.ts`, `src/main/pm2-home-alias.ts`: PM2 validation lab in the main process (exposed through the preload bridge)
+- `src/shared/`: types shared across main, preload, and renderer
 - `scripts/`: packaging helpers, artifact preservation, signing verification, smoke tests
-- `.github/workflows/`: CI/CD pipelines including Release Drafter
+- `.github/workflows/`: `pr-checks.yml`, `build.yml` (+ reusable Windows/Unix builds), and `release-draft-action.yml` (release drafts via `HagiCode-org/hagi-release-drafter`; version comes from commit history)
 
 ## Agent Guidelines
 
