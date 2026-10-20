@@ -33,6 +33,7 @@ CI uses Node.js 24. Platform builds (`build:linux`, `build:win`, `build:mac:*`) 
 - `src/main/pm2-lab.ts`, `src/main/pm2-home-alias.ts`: PM2 validation lab in the main process (exposed through the preload bridge)
 - `src/shared/`: types shared across main, preload, and renderer
 - `scripts/`: packaging helpers, artifact preservation, signing verification, smoke tests
+- `resources/`: icons, MSIX manifest template and appx logos, PSF `config.template.json`, and the bundled PM2 heartbeat worker (`pm2/heartbeat-worker.cjs`) used by the validation lab
 - `.github/workflows/`: `pr-checks.yml`, `build.yml` (+ reusable Windows/Unix builds), and `release-draft-action.yml` (release drafts via `HagiCode-org/hagi-release-drafter`; version comes from commit history)
 
 ## Agent Guidelines
