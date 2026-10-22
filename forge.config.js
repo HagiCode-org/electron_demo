@@ -101,6 +101,7 @@ export default {
       /^\/\.winapp($|\/)/,
       /^\/\.cache\//,
       /^\/out\//,
+      /^\/tools\//,
       /^\/pkg\//,
       /^\/winapp\.yaml$/,
       /^\/unsigned-artifacts\//,
