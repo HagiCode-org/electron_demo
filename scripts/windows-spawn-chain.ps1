@@ -2,7 +2,7 @@
 Windows-only driver for the Electron -> dotnet -> (git, claude) spawn measurement.
 
   powershell -File scripts\windows-spawn-chain.ps1 -Action Build      build the app, the .NET probe and a packaged layout
-  powershell -File scripts\windows-spawn-chain.ps1 -Action Register   register the packaged layout as an MSIX identity (Developer Mode, no signing)
+  powershell -File scripts\windows-spawn-chain.ps1 -Action Register [-StripRuntimeBehavior]   register the packaged layout as an MSIX identity (Developer Mode, no signing); the switch drops uap10:RuntimeBehavior and uap10:TrustLevel, like the Store manifest
   powershell -File scripts\windows-spawn-chain.ps1 -Action Run -Mode msix|unpackaged [-Iterations 20] [-ClaudePrompt]
   powershell -File scripts\windows-spawn-chain.ps1 -Action Unregister
 
@@ -13,6 +13,15 @@ param(
     [ValidateSet('msix', 'unpackaged')][string]$Mode = 'msix',
     [int]$Iterations = 20,
     [switch]$ClaudePrompt,
+    [string]$ProbeOnly = '',
+    [int]$ProbeIdleSeconds = 0,
+    [int]$ProbeOptOutThrottleAt = 0,
+    [string]$ProbeOptOutWhat = '',
+    [switch]$ProbeCompare,
+    [switch]$ShowWindow,
+    [switch]$StealFocus,
+    [ValidateSet('focused', 'minimized', 'hidden')][string]$WindowMode = 'focused',
+    [switch]$StripRuntimeBehavior,
     [string]$LibsRoot = '',
     [string]$WorkDir = (Join-Path $env:USERPROFILE 'win_tester_logs'),
     [string]$Repo = ''
@@ -54,7 +63,14 @@ switch ($Action) {
     }
     'Register' {
         Get-AppxPackage -Name $packageName | Remove-AppxPackage
-        Add-AppxPackage -Register (Join-Path $layout 'AppxManifest.xml')
+        $manifestPath = Join-Path $layout 'AppxManifest.xml'
+        $manifestSource = Join-Path $root '.cache\msix\Package.appxmanifest'
+        $manifest = Get-Content $manifestSource -Raw
+        if ($StripRuntimeBehavior) {
+            $manifest = $manifest -replace '\s+uap10:RuntimeBehavior="[^"]*"', '' -replace '\s+uap10:TrustLevel="[^"]*"', ''
+        }
+        [IO.File]::WriteAllText($manifestPath, $manifest, (New-Object Text.UTF8Encoding $false))
+        Add-AppxPackage -Register $manifestPath
         "registered: " + (Get-AppxPackage -Name $packageName).PackageFullName
     }
     'Unregister' {
@@ -75,6 +91,13 @@ switch ($Action) {
             repo = $Repo
             iterations = $Iterations
             claudePrompt = [bool]$ClaudePrompt
+            probeOnly = $ProbeOnly
+            probeIdleSeconds = $ProbeIdleSeconds
+            probeOptOutThrottleAt = $ProbeOptOutThrottleAt
+            probeOptOutWhat = $ProbeOptOutWhat
+            probeCompare = [bool]$ProbeCompare
+            showWindow = [bool]$ShowWindow
+            windowMode = $WindowMode
             outFile = $out
         }
         $json = $request | ConvertTo-Json
@@ -86,8 +109,24 @@ switch ($Action) {
             Start-Process (Join-Path $layout 'app\electron-demo.exe')
         }
 
+        if ($ShowWindow) {
+            # Which process owns the foreground window a few seconds in, so a run can say whether the app really was in front.
+            Add-Type -Namespace Win -Name Fg -MemberDefinition '[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow(); [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);'
+            Start-Sleep 2
+            if ($StealFocus) {
+                # Put another app in front of the window, as when the user works in a browser while the app runs behind it.
+                $front = Start-Process notepad.exe -PassThru
+                Start-Sleep 1
+            }
+            $fgPid = [uint32]0
+            [void][Win.Fg]::GetWindowThreadProcessId([Win.Fg]::GetForegroundWindow(), [ref]$fgPid)
+            $fg = Get-Process -Id $fgPid -ErrorAction SilentlyContinue
+            Set-Content (Join-Path $chainDir "foreground-$Mode.txt") ("foreground process: " + $(if ($fg) { $fg.ProcessName } else { 'none' }))
+        }
+
         $deadline = (Get-Date).AddMinutes(10)
         while (-not (Test-Path $out) -and (Get-Date) -lt $deadline) { Start-Sleep 2 }
+        if ($front) { Stop-Process -Id $front.Id -ErrorAction SilentlyContinue }
         if (-not (Test-Path $out)) { throw "no report after 10 minutes: $out" }
         Start-Sleep 1
         "report: $out"

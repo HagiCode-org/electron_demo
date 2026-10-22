@@ -151,7 +151,18 @@ if (!gotSingleInstanceLock) {
 
   app.whenReady().then(async () => {
     // A spawn-chain request file turns this start into a headless measurement run with no window.
-    if (await runSpawnChainFromRequestFile()) {
+    if (await runSpawnChainFromRequestFile(async (mode) => {
+      registerIpcHandlers();
+      await createMainWindow();
+      mainWindow?.show();
+      mainWindow?.focus();
+
+      if (mode === 'minimized') {
+        mainWindow?.minimize();
+      } else if (mode === 'hidden') {
+        mainWindow?.hide();
+      }
+    })) {
       app.quit();
       return;
     }

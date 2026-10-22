@@ -6,6 +6,7 @@ import path from 'node:path';
 
 import type {
   SpawnChainReport,
+  SpawnChainWindowMode,
   SpawnChainRequest,
   SpawnChainSample,
 } from '../shared/demo-api.js';
@@ -33,7 +34,7 @@ function readRequest(requestPath: string): SpawnChainRequest | null {
   return JSON.parse(fs.readFileSync(requestPath, 'utf8')) as SpawnChainRequest;
 }
 
-function spawnOnce(command: string, args: string[], cwd?: string): Promise<SpawnOutcome> {
+function spawnOnce(command: string, args: string[], cwd?: string, env?: NodeJS.ProcessEnv): Promise<SpawnOutcome> {
   const started = performance.now();
 
   return new Promise((resolve) => {
@@ -49,7 +50,7 @@ function spawnOnce(command: string, args: string[], cwd?: string): Promise<Spawn
       resolve({ ms: performance.now() - started, ...outcome });
     };
 
-    const child = spawn(command, args, { cwd, shell: false, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(command, args, { cwd, env: env ? { ...process.env, ...env } : process.env, shell: false, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
     const timer = setTimeout(() => {
       child.kill();
       finish({ exitCode: null, stdout, error: 'timed out' });
@@ -120,6 +121,12 @@ export async function runSpawnChain(request: SpawnChainRequest): Promise<SpawnCh
   scenarios.push(measureSync('electron.fs-exists-hit-x100', iterations, () => { for (let i = 0; i < 100; i += 1) { fs.existsSync(presentPath); } }));
   scenarios.push(measureSync('electron.fs-exists-missing-x100', iterations, () => { for (let i = 0; i < 100; i += 1) { fs.existsSync(missingPath); } }));
 
+  // The same probe from a child process that is not .NET: tells a child-process cause from a .NET-API cause.
+  const childScript = `const fs=require('fs');const p=process.argv[1];const t=[];for(let i=0;i<20;i++){const s=process.hrtime.bigint();for(let j=0;j<100;j++){fs.existsSync(p);}t.push(Number(process.hrtime.bigint()-s)/1e6);}t.sort((a,b)=>a-b);console.log(t[10]);`;
+  const nodeChild = await spawnOnce(process.execPath, ['-e', childScript, presentPath], undefined, { ELECTRON_RUN_AS_NODE: '1' });
+  const nodeChildMs = Number.parseFloat(nodeChild.stdout);
+  scenarios.push(summarize('electron.child-node-fs-exists-hit-x100', Number.isFinite(nodeChildMs) ? [nodeChildMs] : [0], nodeChild.error));
+
   if (request.gitPath) {
     scenarios.push(await measure('electron.git-version', iterations, () => spawnOnce(request.gitPath!, ['--version'])));
 
@@ -144,6 +151,21 @@ export async function runSpawnChain(request: SpawnChainRequest): Promise<SpawnCh
   }
   if (request.claudePrompt) {
     probeArgs.push('--prompt');
+  }
+  if (request.probeOnly) {
+    probeArgs.push('--only', request.probeOnly);
+  }
+  if (request.probeIdleSeconds) {
+    probeArgs.push('--idle', String(request.probeIdleSeconds));
+  }
+  if (request.probeOptOutThrottleAt) {
+    probeArgs.push('--opt-out-throttle-at', String(request.probeOptOutThrottleAt));
+  }
+  if (request.probeCompare) {
+    probeArgs.push('--compare');
+  }
+  if (request.probeOptOutWhat) {
+    probeArgs.push('--opt-out-what', request.probeOptOutWhat);
   }
 
   const probeWall = performance.now();
@@ -182,7 +204,7 @@ export async function runSpawnChain(request: SpawnChainRequest): Promise<SpawnCh
  * Headless entry: when a request file exists at startup, run the chain, write the report next to it and report back.
  * Returns true when a request was handled, so the caller can quit instead of opening a window.
  */
-export async function runSpawnChainFromRequestFile(): Promise<boolean> {
+export async function runSpawnChainFromRequestFile(openWindow: (mode: SpawnChainWindowMode) => Promise<void>): Promise<boolean> {
   const requestPath = getDefaultRequestPath();
   const request = readRequest(requestPath);
 
@@ -193,6 +215,11 @@ export async function runSpawnChainFromRequestFile(): Promise<boolean> {
   const outFile = request.outFile || path.join(path.dirname(requestPath), `report-${request.label || 'run'}.json`);
 
   try {
+    // A visible, focused window decides whether Windows treats the app as foreground, which changes how it throttles the process tree.
+    if (request.showWindow) {
+      await openWindow(request.windowMode ?? 'focused');
+    }
+
     const report = await runSpawnChain(request);
     fs.writeFileSync(outFile, JSON.stringify(report, null, 2), 'utf8');
   } catch (error) {

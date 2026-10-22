@@ -119,6 +119,9 @@ export interface Pm2ActionRequest {
   createPm2HomeAlias?: boolean;
 }
 
+/** How the window is left while the chain runs: in front, minimized to the taskbar, or hidden (as when parked in the tray). */
+export type SpawnChainWindowMode = 'focused' | 'minimized' | 'hidden';
+
 export interface SpawnChainRequest {
   /** Free-text tag copied into the report, for example "msix" or "unpackaged". */
   label?: string;
@@ -132,6 +135,20 @@ export interface SpawnChainRequest {
   iterations?: number;
   /** Also send one tiny real Claude print-mode request per iteration (calls the API). */
   claudePrompt?: boolean;
+  /** Only run probe scenarios whose name starts with this prefix. */
+  probeOnly?: string;
+  /** Keep the probe alive and idle this many seconds after its scenarios, sampling the file-system baseline. */
+  probeIdleSeconds?: number;
+  /** During the idle time, clear the probe's execution-speed throttling at this second. */
+  probeOptOutThrottleAt?: number;
+  /** Which settings that opt-out touches: a comma list of power, memory, io, background. */
+  probeOptOutWhat?: string;
+  /** Run the throttled-versus-opted-out comparison scenarios (use with probeOnly "compare"). */
+  probeCompare?: boolean;
+  /** Open the app window before measuring, so the run happens with a visible window. */
+  showWindow?: boolean;
+  /** With showWindow: the window state while the chain runs. Defaults to focused. */
+  windowMode?: SpawnChainWindowMode;
   outFile?: string;
 }
 
