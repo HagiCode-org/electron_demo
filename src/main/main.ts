@@ -6,6 +6,7 @@ import {
   runPm2Action,
   startPm2Process,
 } from './pm2-lab.js';
+import { runSpawnChain, runSpawnChainFromRequestFile } from './spawn-chain.js';
 import type {
   DemoAppInfo,
   DemoEnvironmentRequest,
@@ -13,6 +14,7 @@ import type {
   ExternalOpenResult,
   Pm2ActionRequest,
   Pm2StartRequest,
+  SpawnChainRequest,
 } from '../shared/demo-api.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -76,6 +78,7 @@ function registerIpcHandlers(): void {
   ipcMain.handle('demo:inspect-pm2-environment', (_event, request?: DemoEnvironmentRequest) => inspectPm2Environment(request));
   ipcMain.handle('demo:start-pm2-process', (_event, request: Pm2StartRequest) => startPm2Process(request));
   ipcMain.handle('demo:run-pm2-action', (_event, request: Pm2ActionRequest) => runPm2Action(request));
+  ipcMain.handle('demo:run-spawn-chain', (_event, request: SpawnChainRequest) => runSpawnChain(request));
   ipcMain.handle('demo:open-external', async (_event, url: string): Promise<ExternalOpenResult> => {
     try {
       await shell.openExternal(url);
@@ -147,6 +150,12 @@ if (!gotSingleInstanceLock) {
   });
 
   app.whenReady().then(async () => {
+    // A spawn-chain request file turns this start into a headless measurement run with no window.
+    if (await runSpawnChainFromRequestFile()) {
+      app.quit();
+      return;
+    }
+
     registerIpcHandlers();
     await createMainWindow();
 

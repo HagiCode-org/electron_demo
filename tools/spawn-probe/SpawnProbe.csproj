@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Times the child-process launches the HagiCode backend makes (git, claude) from a .NET process.
+    Without HagiCodeLibsRoot it only runs the plain System.Diagnostics.Process scenarios.
+    With HagiCodeLibsRoot (the folder that holds src\HagiCode.Libs.Core and src\HagiCode.Libs.Git) it also runs the real library code.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>SpawnProbe</AssemblyName>
+    <HagiCodeLibsRoot Condition="'$(HagiCodeLibsRoot)' == ''">$(HAGICODE_LIBS_ROOT)</HagiCodeLibsRoot>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(HagiCodeLibsRoot)' != ''">
+    <DefineConstants>$(DefineConstants);WITH_LIBS</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(HagiCodeLibsRoot)' != ''">
+    <ProjectReference Include="$(HagiCodeLibsRoot)\src\HagiCode.Libs.Core\HagiCode.Libs.Core.csproj" />
+    <ProjectReference Include="$(HagiCodeLibsRoot)\src\HagiCode.Libs.Git\HagiCode.Libs.Git.csproj" />
+  </ItemGroup>
+
+</Project>

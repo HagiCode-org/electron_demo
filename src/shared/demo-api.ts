@@ -118,3 +118,49 @@ export interface Pm2ActionRequest {
   env?: Record<string, string>;
   createPm2HomeAlias?: boolean;
 }
+
+export interface SpawnChainRequest {
+  /** Free-text tag copied into the report, for example "msix" or "unpackaged". */
+  label?: string;
+  /** The built SpawnProbe.dll (tools/spawn-probe). */
+  probeDll: string;
+  dotnet?: string;
+  gitPath?: string;
+  claudePath?: string;
+  /** A git repository the git scenarios run in. */
+  repo?: string;
+  iterations?: number;
+  /** Also send one tiny real Claude print-mode request per iteration (calls the API). */
+  claudePrompt?: boolean;
+  outFile?: string;
+}
+
+export interface SpawnChainSample {
+  name: string;
+  count: number;
+  firstMs: number;
+  minMs: number;
+  medianMs: number;
+  p95Ms: number;
+  maxMs: number;
+  error?: string;
+}
+
+export interface SpawnChainReport {
+  startedAt: string;
+  completedAt: string;
+  label: string;
+  electron: {
+    isPackaged: boolean;
+    windowsStore: boolean;
+    execPath: string;
+    pid: number;
+    electronVersion: string;
+    nodeVersion: string;
+  };
+  scenarios: SpawnChainSample[];
+  dotnetProbeWallMs: number;
+  /** The SpawnProbe JSON report, as the dotnet process produced it. */
+  dotnetProbe: unknown;
+  dotnetProbeError?: string;
+}

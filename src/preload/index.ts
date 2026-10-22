@@ -7,6 +7,8 @@ import type {
   Pm2CommandResult,
   Pm2EnvironmentReport,
   Pm2StartRequest,
+  SpawnChainReport,
+  SpawnChainRequest,
 } from '../shared/demo-api.js';
 
 const electronDemo = {
@@ -23,6 +25,10 @@ const electronDemo = {
     'demo:run-pm2-action',
     request,
   ) as Promise<Pm2CommandResult>,
+  runSpawnChain: (request: SpawnChainRequest) => ipcRenderer.invoke(
+    'demo:run-spawn-chain',
+    request,
+  ) as Promise<SpawnChainReport>,
   openExternal: (url: string) => ipcRenderer.invoke('demo:open-external', url) as Promise<ExternalOpenResult>,
 };
 
