@@ -542,6 +542,9 @@ internal static class Environment_
             ["currentDirectory"] = Environment.CurrentDirectory,
             ["pathEntries"] = (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries).Length.ToString(),
             ["pathext"] = Environment.GetEnvironmentVariable("PATHEXT"),
+            ["elevated"] = OperatingSystem.IsWindows()
+                ? new System.Security.Principal.WindowsPrincipal(System.Security.Principal.WindowsIdentity.GetCurrent()).IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator).ToString()
+                : null,
         };
     }
 }

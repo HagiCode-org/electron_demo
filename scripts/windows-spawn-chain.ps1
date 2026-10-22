@@ -19,6 +19,7 @@ param(
     [string]$ProbeOptOutWhat = '',
     [switch]$ProbeCompare,
     [switch]$ShowWindow,
+    [switch]$LaunchViaExplorer,
     [switch]$StealFocus,
     [ValidateSet('focused', 'minimized', 'hidden')][string]$WindowMode = 'focused',
     [switch]$StripRuntimeBehavior,
@@ -104,7 +105,12 @@ switch ($Action) {
         [IO.File]::WriteAllText((Join-Path $chainDir 'request.json'), $json, (New-Object Text.UTF8Encoding $false))
 
         if ($Mode -eq 'msix') {
-            Start-Process "shell:AppsFolder\$(Get-Pfn)!App"
+            if ($LaunchViaExplorer) {
+                # explorer.exe starts the app at the user's normal (not elevated) level even when this script is elevated.
+                Start-Process explorer.exe "shell:AppsFolder\$(Get-Pfn)!App"
+            } else {
+                Start-Process "shell:AppsFolder\$(Get-Pfn)!App"
+            }
         } else {
             Start-Process (Join-Path $layout 'app\electron-demo.exe')
         }
