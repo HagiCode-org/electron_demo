@@ -48,6 +48,31 @@ Recommended validation flow:
 
 The validation page also supports a dedicated `PM2_HOME` and an automatic no-space alias for paths that contain spaces, which mirrors the behavior the desktop app needs for reliable `pm2` execution.
 
+## Spawn Chain Measurement (Windows)
+
+Measures how long the process launches the HagiCode desktop makes take, in the real chain `Electron -> dotnet -> (git, claude)`, packaged as MSIX and unpackaged.
+
+- `tools/spawn-probe` is a .NET console probe. It starts git and claude with the same `ProcessStartInfo` settings as `HagiCode.Libs`, and with `-p:HagiCodeLibsRoot=<Libs checkout>` it also runs the real `HagiCode.Libs.Git` and `CliProcessManager` code, a file-system probe and a tree walk.
+- `src/main/spawn-chain.ts` runs the chain from the Electron main process. If `%USERPROFILE%\win_tester_logs\spawn-chain\request.json` exists (or the file named by `HAGICODE_SPAWN_CHAIN_REQUEST`), the app starts without a window, writes a report and quits. The same run is available over IPC as `runSpawnChain`.
+- `scripts/windows-spawn-chain.ps1` builds, registers and runs it; `scripts/show-spawn-chain.ps1` prints a report as a table.
+
+```powershell
+powershell -File scripts\windows-spawn-chain.ps1 -Action Build -LibsRoot C:\path\to\Hagicode.Libs
+powershell -File scripts\windows-spawn-chain.ps1 -Action Register          # loose registration, needs Developer Mode, no signing
+powershell -File scripts\windows-spawn-chain.ps1 -Action Run -Mode msix -Iterations 30 -Repo C:\path\to\a\git\repo
+powershell -File scripts\windows-spawn-chain.ps1 -Action Run -Mode unpackaged -Iterations 30 -Repo C:\path\to\a\git\repo
+```
+
+`Register` and starting the packaged app need the logged-on desktop session. From SSH use `python3 repos/win_tester/scripts/windows_test_host.py run-interactive "<command>"`. The loose registration points at the build folder, so it has the package identity but not the `C:\Program Files\WindowsApps` install location of a signed `.msix`.
+
+### Finding: windowless MSIX processes are throttled
+
+Measured on Windows 11 26200 (i5-13500H) with the loose registration above. When the packaged app has **no window at all**, its .NET child is put in execution-speed throttling (EcoQoS) about 2.5 s after start. The child's own CPU work then runs 6-7x slower: `File.Exists` x100 goes from 1.3 to 9-10 ms and a `FileInfo` walk over a 1271-file repo from about 26 ms to 166-199 ms. Electron's own Node `fs` calls were not visibly slower in the same runs. Child launches (`git`, `claude`) are not throttled (ratio 1.0-1.16). Unpackaged runs never show it.
+
+- Any window removes it: focused, minimized, `hide()`-n, or another app in front all stay at about 2 ms.
+- One `SetProcessInformation(ProcessPowerThrottling, ControlMask=1, StateMask=0)` call in the .NET process restores speed and it stays restored. Opting out of memory/IO priority has no effect.
+- The probe options that reproduce this: `-ProbeIdleSeconds N -ProbeOptOutThrottleAt S -ProbeOptOutWhat power|memory|io|background`, `-ProbeCompare` (with `-ProbeOnly compare`), and `-ShowWindow [-WindowMode focused|minimized|hidden] [-StealFocus]`. The probe also writes an `fsSeries` of `File.Exists` x100 every 250 ms to the report.
+
 ## CI Design
 
 - `pr-checks.yml` — Install, type check, production build, and Linux dir packaging self-check
