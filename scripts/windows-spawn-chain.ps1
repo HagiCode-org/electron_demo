@@ -42,7 +42,7 @@ switch ($Action) {
     'Build' {
         Push-Location $root
         try {
-            npm run build:prod
+            pnpm run build:prod
             if ($LASTEXITCODE -ne 0) { throw 'build:prod failed' }
             node scripts/run-electron-forge.js --platform win32 --arch x64 --package-only
             if ($LASTEXITCODE -ne 0) { throw 'package failed' }

@@ -37,55 +37,55 @@ jobs:
             name: Linux AppImage
             platform: linux
             runs_on: ubuntu-latest
-            command: npm run build:linux:appimage
+            command: pnpm run build:linux:appimage
             artifact_path: pkg/*.AppImage
           - id: linux-deb
             name: Linux DEB
             platform: linux
             runs_on: ubuntu-latest
-            command: npm run build:linux:deb
+            command: pnpm run build:linux:deb
             artifact_path: pkg/*.deb
           - id: linux-rpm
             name: Linux RPM
             platform: linux
             runs_on: ubuntu-latest
-            command: npm run build:linux:rpm
+            command: pnpm run build:linux:rpm
             artifact_path: pkg/*.rpm
           - id: linux-tar-gz
             name: Linux tar.gz
             platform: linux
             runs_on: ubuntu-latest
-            command: npm run build:linux:tar.gz
+            command: pnpm run build:linux:tar.gz
             artifact_path: pkg/*.tar.gz
           - id: linux-zip
             name: Linux ZIP
             platform: linux
             runs_on: ubuntu-latest
-            command: npm run build:linux:zip
+            command: pnpm run build:linux:zip
             artifact_path: pkg/*.zip
           - id: mac-x64-dmg
             name: macOS x64 DMG
             platform: mac
             runs_on: macos-15-intel
-            command: npm run build:mac:x64:dmg
+            command: pnpm run build:mac:x64:dmg
             artifact_path: pkg/*.dmg
           - id: mac-x64-zip
             name: macOS x64 ZIP
             platform: mac
             runs_on: macos-15-intel
-            command: npm run build:mac:x64:zip
+            command: pnpm run build:mac:x64:zip
             artifact_path: pkg/*.zip
           - id: mac-arm64-dmg
             name: macOS arm64 DMG
             platform: mac
             runs_on: macos-14
-            command: npm run build:mac:arm64:dmg
+            command: pnpm run build:mac:arm64:dmg
             artifact_path: pkg/*.dmg
           - id: mac-arm64-zip
             name: macOS arm64 ZIP
             platform: mac
             runs_on: macos-14
-            command: npm run build:mac:arm64:zip
+            command: pnpm run build:mac:arm64:zip
             artifact_path: pkg/*.zip
 
     steps:
@@ -163,12 +163,15 @@ jobs:
 
           npm version "$target_version" --no-git-tag-version
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: package-lock.json
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Cache Electron downloads
         uses: actions/cache@v5
@@ -176,7 +179,7 @@ jobs:
           path: |
             .cache/electron
             .cache/electron-builder
-          key: ${{ runner.os }}-electron-${{ hashFiles('package-lock.json') }}
+          key: ${{ runner.os }}-electron-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-electron-
 
@@ -185,7 +188,7 @@ jobs:
         run: |
           set -euo pipefail
           for attempt in 1 2 3; do
-            if npm ci; then
+            if pnpm install --frozen-lockfile; then
               exit 0
             fi
 
@@ -193,7 +196,7 @@ jobs:
               exit 1
             fi
 
-            echo "npm ci failed on attempt ${attempt}; cleaning workspace and retrying..."
+            echo "pnpm install --frozen-lockfile; cleaning workspace and retrying..."
             rm -rf node_modules
             npm cache verify || true
             sleep $((attempt * 10))

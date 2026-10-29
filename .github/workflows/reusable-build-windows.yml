@@ -40,17 +40,17 @@ jobs:
           - id: win-portable
             name: Windows Portable
             runs_on: windows-2025-vs2026
-            command: npm run build:win:portable
+            command: pnpm run build:win:portable
             artifact_path: pkg/*.exe
           - id: win-nsis
             name: Windows NSIS
             runs_on: windows-2025-vs2026
-            command: npm run build:win:nsis
+            command: pnpm run build:win:nsis
             artifact_path: pkg/*Setup*.exe
           - id: win-msix
             name: Windows MSIX
             runs_on: windows-2025-vs2026
-            command: npm run build:win:msix
+            command: pnpm run build:win:msix
             artifact_path: pkg/*.msix
 
     steps:
@@ -113,12 +113,15 @@ jobs:
 
           npm version "$target_version" --no-git-tag-version
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: package-lock.json
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Cache Electron downloads
         uses: actions/cache@v5
@@ -126,7 +129,7 @@ jobs:
           path: |
             .cache/electron
             .cache/electron-builder
-          key: ${{ runner.os }}-electron-${{ hashFiles('package-lock.json') }}
+          key: ${{ runner.os }}-electron-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-electron-
 
@@ -135,7 +138,7 @@ jobs:
         run: |
           set -euo pipefail
           for attempt in 1 2 3; do
-            if npm ci; then
+            if pnpm install --frozen-lockfile; then
               exit 0
             fi
 
@@ -143,7 +146,7 @@ jobs:
               exit 1
             fi
 
-            echo "npm ci failed on attempt ${attempt}; cleaning workspace and retrying..."
+            echo "pnpm install --frozen-lockfile; cleaning workspace and retrying..."
             rm -rf node_modules
             npm cache verify || true
             sleep $((attempt * 10))
