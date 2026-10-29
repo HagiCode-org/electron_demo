@@ -15,12 +15,12 @@ Run commands from `repos/electron_demo/`.
 ## Key Commands
 
 ```bash
-npm ci
-npm run dev
-npm run build:prod          # typecheck + build + smoke-test
-npm run build:tsc:check     # typecheck main, preload, renderer
-npm run smoke-test
-npm run build:linux:dir     # Linux package-only self-check used by PR checks
+pnpm install
+pnpm run dev
+pnpm run build:prod          # typecheck + build + smoke-test
+pnpm run build:tsc:check     # typecheck main, preload, renderer
+pnpm run smoke-test
+pnpm run build:linux:dir     # Linux package-only self-check used by PR checks
 ```
 
 CI uses Node.js 24. Platform builds (`build:linux`, `build:win`, `build:mac:*`) package through Electron Forge via `scripts/run-electron-forge.js`.
@@ -42,8 +42,15 @@ CI uses Node.js 24. Platform builds (`build:linux`, `build:win`, `build:mac:*`) 
 - Keep changes aligned with the Electron main/preload/renderer boundary patterns from `hagicode-desktop`.
 - Treat this repo as a CI validation lane, not a feature-development target.
 - If build or packaging behavior changes, ensure the corresponding GitHub Actions workflows still pass.
-- Use `npm ci` for CI-sensitive installs, `npm install` for local iteration.
+- Use `pnpm install` for CI-sensitive installs, `pnpm install` for local iteration.
 
 ## References
 
 - `README.md`
+
+## Package management
+
+- The repository uses pnpm, pinned in `package.json` `packageManager`. Run `corepack enable` once, then `pnpm install`. `pnpm-lock.yaml` is the only lockfile; do not commit `package-lock.json`.
+- Settings live in `pnpm-workspace.yaml`. `allowBuilds` lists the dependencies whose install scripts may run (reviewed individually, `false` means reviewed and denied); review any new dependency that has an install script and add it there.
+- A local registry mirror belongs in `~/.npmrc` only. Never commit a `registry=` line or a mirror URL; `pnpm run check:registry` (also run in CI) fails on any non-`registry.npmjs.org` `tarball` in the lockfile and on mirror hosts in tracked files.
+- Undeclared imports fail under pnpm's strict layout: declare the package instead of hoisting it.

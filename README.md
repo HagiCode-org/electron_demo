@@ -19,16 +19,16 @@ The goal is not to carry business logic, but to preserve the core engineering st
 ## Common Commands
 
 ```bash
-npm ci
-npm run dev
-npm run build:prod
-npm run build:linux
-npm run build:linux:deb
-npm run build:linux:rpm
-npm run build:win
-npm run build:win:msix
-npm run build:mac:x64
-npm run build:mac:arm64
+pnpm install
+pnpm run dev
+pnpm run build:prod
+pnpm run build:linux
+pnpm run build:linux:deb
+pnpm run build:linux:rpm
+pnpm run build:win
+pnpm run build:win:msix
+pnpm run build:mac:x64
+pnpm run build:mac:arm64
 ```
 
 ## PM2 Validation Page
@@ -41,7 +41,7 @@ The renderer home page is now a validation lab for the desktop `pm2` scenario.
 
 Recommended validation flow:
 
-1. Run `npm run dev`.
+1. Run `pnpm run dev`.
 2. Use `填充心跳脚本示例`, then click `pm2 start`, `jlist`, and `logs`.
 3. If the local `pm2` chain works, switch to `填充 .NET Server 示例`, replace the DLL path, and repeat the same actions.
 
