@@ -99,6 +99,16 @@ jobs:
             exit 1
           fi
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
       - name: Sync package version
         shell: bash
         run: |
@@ -112,16 +122,6 @@ jobs:
           fi
 
           pnpm version "$target_version" --no-git-tag-version --no-git-checks
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
 
       - name: Cache Electron downloads
         uses: actions/cache@v5
