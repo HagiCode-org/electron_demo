@@ -161,7 +161,7 @@ jobs:
             exit 0
           fi
 
-          npm version "$target_version" --no-git-tag-version
+          pnpm version "$target_version" --no-git-tag-version --no-git-checks
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -198,7 +198,7 @@ jobs:
 
             echo "pnpm install --frozen-lockfile; cleaning workspace and retrying..."
             rm -rf node_modules
-            npm cache verify || true
+            pnpm store prune || true
             sleep $((attempt * 10))
           done
 
