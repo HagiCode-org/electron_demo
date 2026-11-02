@@ -48,7 +48,7 @@ jobs:
           - id: linux-rpm
             name: Linux RPM
             platform: linux
-            runs_on: ubuntu-latest
+            runs_on: ubuntu-24.04
             command: pnpm run build:linux:rpm
             artifact_path: pkg/*.rpm
           - id: linux-tar-gz
