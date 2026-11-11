@@ -56,10 +56,10 @@ Measures how long the process launches the HagiCode desktop makes take, in the r
 - `scripts/windows-spawn-chain.ps1` builds, registers and runs it; `scripts/show-spawn-chain.ps1` prints a report as a table.
 
 ```powershell
-powershell -File scripts\windows-spawn-chain.ps1 -Action Build -LibsRoot C:\path\to\Hagicode.Libs
-powershell -File scripts\windows-spawn-chain.ps1 -Action Register          # loose registration, needs Developer Mode, no signing
-powershell -File scripts\windows-spawn-chain.ps1 -Action Run -Mode msix -Iterations 30 -Repo C:\path\to\a\git\repo
-powershell -File scripts\windows-spawn-chain.ps1 -Action Run -Mode unpackaged -Iterations 30 -Repo C:\path\to\a\git\repo
+pwsh -File scripts\windows-spawn-chain.ps1 -Action Build -LibsRoot C:\path\to\Hagicode.Libs
+pwsh -File scripts\windows-spawn-chain.ps1 -Action Register          # loose registration, needs Developer Mode, no signing
+pwsh -File scripts\windows-spawn-chain.ps1 -Action Run -Mode msix -Iterations 30 -Repo C:\path\to\a\git\repo
+pwsh -File scripts\windows-spawn-chain.ps1 -Action Run -Mode unpackaged -Iterations 30 -Repo C:\path\to\a\git\repo
 ```
 
 `Register` and starting the packaged app need the logged-on desktop session. The loose registration points at the build folder, so it has the package identity but not the `C:\Program Files\WindowsApps` install location of a signed `.msix`.

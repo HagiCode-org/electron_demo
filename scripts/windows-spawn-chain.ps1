@@ -1,10 +1,10 @@
 <#
 Windows-only driver for the Electron -> dotnet -> (git, claude) spawn measurement.
 
-  powershell -File scripts\windows-spawn-chain.ps1 -Action Build      build the app, the .NET probe and a packaged layout
-  powershell -File scripts\windows-spawn-chain.ps1 -Action Register [-StripRuntimeBehavior]   register the packaged layout as an MSIX identity (Developer Mode, no signing); the switch drops uap10:RuntimeBehavior and uap10:TrustLevel, like the Store manifest
-  powershell -File scripts\windows-spawn-chain.ps1 -Action Run -Mode msix|unpackaged [-Iterations 20] [-ClaudePrompt]
-  powershell -File scripts\windows-spawn-chain.ps1 -Action Unregister
+  pwsh -File scripts\windows-spawn-chain.ps1 -Action Build      build the app, the .NET probe and a packaged layout
+  pwsh -File scripts\windows-spawn-chain.ps1 -Action Register [-StripRuntimeBehavior]   register the packaged layout as an MSIX identity (Developer Mode, no signing); the switch drops uap10:RuntimeBehavior and uap10:TrustLevel, like the Store manifest
+  pwsh -File scripts\windows-spawn-chain.ps1 -Action Run -Mode msix|unpackaged [-Iterations 20] [-ClaudePrompt]
+  pwsh -File scripts\windows-spawn-chain.ps1 -Action Unregister
 
 Reports land in $WorkDir\spawn-chain\report-<mode>.json.
 #>
