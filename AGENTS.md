@@ -21,6 +21,7 @@ pnpm run build:prod          # typecheck + build + smoke-test
 pnpm run build:tsc:check     # typecheck main, preload, renderer
 pnpm run smoke-test
 pnpm run build:linux:dir     # Linux package-only self-check used by PR checks
+pnpm run check:registry      # registry neutrality; run by PR checks too
 ```
 
 CI uses Node.js 24. Platform builds (`build:linux`, `build:win`, `build:mac:*`) package through Electron Forge via `scripts/run-electron-forge.js`.
@@ -42,7 +43,7 @@ CI uses Node.js 24. Platform builds (`build:linux`, `build:win`, `build:mac:*`) 
 - Keep changes aligned with the Electron main/preload/renderer boundary patterns from `hagicode-desktop`.
 - Treat this repo as a CI validation lane, not a feature-development target.
 - If build or packaging behavior changes, ensure the corresponding GitHub Actions workflows still pass.
-- Use `pnpm install` for CI-sensitive installs, `pnpm install` for local iteration.
+- CI installs use `pnpm install --frozen-lockfile`; use `pnpm install` for local iteration.
 
 ## References
 
@@ -52,5 +53,5 @@ CI uses Node.js 24. Platform builds (`build:linux`, `build:win`, `build:mac:*`) 
 
 - The repository uses pnpm, pinned in `package.json` `packageManager`. Run `corepack enable` once, then `pnpm install`. `pnpm-lock.yaml` is the only lockfile; do not commit `package-lock.json`.
 - Settings live in `pnpm-workspace.yaml`. `allowBuilds` lists the dependencies whose install scripts may run (reviewed individually, `false` means reviewed and denied); review any new dependency that has an install script and add it there.
-- A local registry mirror belongs in `~/.npmrc` only. Never commit a `registry=` line or a mirror URL; `pnpm run check:registry` (also run in CI) fails on any non-`registry.npmjs.org` `tarball` in the lockfile and on mirror hosts in tracked files.
+- A local registry mirror belongs in `~/.npmrc` only. Never commit a `registry=` line or a mirror URL; `pnpm run check:registry` (also run in CI) fails on any non-`registry.npmjs.org` `tarball` in the lockfile and on mirror hosts in tracked files. The one allowed exception is the pinned `codeload.github.com` tarball for `electron/node-gyp`, passed as `--allow-tarball-prefix` in the `check:registry` script.
 - Undeclared imports fail under pnpm's strict layout: declare the package instead of hoisting it.
